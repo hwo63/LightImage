@@ -1,6 +1,17 @@
 import SwiftUI
 import AppKit
 
+enum LightImageVersion {
+    static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    static let build = Bundle.main.object(forInfoDictionaryKey: "LightImageBuildStamp") as? String
+
+    static var displayName: String {
+        guard let version else { return "LightImage" }
+        if let build { return "LightImage \(version) (build \(build))" }
+        return "LightImage \(version)"
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var model: AppModel?
     var pendingURLs: [URL] = []
@@ -104,6 +115,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             string: "\n\nỨng dụng chỉnh ảnh cho macOS hỗ trợ nhập và áp dụng trực tiếp preset Adobe Lightroom (.xmp và .lrtemplate).",
             attributes: bodyStyle
         ))
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+        var options: [NSApplication.AboutPanelOptionKey: Any] = [.credits: credits]
+        if let build = LightImageVersion.build {
+            options[.version] = "build \(build)"
+        }
+        NSApp.orderFrontStandardAboutPanel(options: options)
     }
 }

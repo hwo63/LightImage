@@ -40,7 +40,12 @@ Các công cụ này được xây dựng trong LightImage từ tham khảo tín
 
 ## Mở ứng dụng
 
-Mở `dist/LightImage.app`. Có thể kéo ứng dụng vào thư mục Applications để dùng lâu dài. Bản được biên dịch trên máy này cho Apple Silicon, yêu cầu macOS 14 trở lên. Ứng dụng được ký ad-hoc để chạy cục bộ, chưa có chữ ký Developer ID/notarization để phân phối rộng rãi.
+Chọn bản cài đặt trong [GitHub Releases](https://github.com/hwo63/LightImage/releases) nếu bạn có quyền truy cập kho. Bản dựng sẵn dành cho Mac Apple Silicon chạy macOS 14 trở lên.
+
+- **DMG**. Mở tệp `.dmg`, kéo **LightImage.app** vào **Applications**, rồi mở ứng dụng từ đó.
+- **ZIP**. Giải nén tệp `.app.zip`, chuyển **LightImage.app** vào **Applications**, rồi mở ứng dụng.
+
+Bản cài thử được ký ad-hoc. macOS có thể chặn bản tải về vì thiếu chữ ký Developer ID và notarization. Bản tự build nằm ở `dist/LightImage.app`.
 
 1. Chọn **Nhập ảnh** hoặc kéo ảnh/thư mục vào cửa sổ. Có thể thử bằng **Khám phá với ảnh minh họa**.
 2. Chọn **Nhập preset**, chọn `.xmp`, `.lrtemplate`, hoặc thư mục chứa các preset. Giải nén ZIP trước khi nhập.
@@ -113,12 +118,23 @@ Dữ liệu lưu trong `~/Library/Application Support/HWO.LightImage/catalog.jso
 
 Không có dependency bên ngoài. Cần Xcode hoặc Swift toolchain có macOS SDK.
 
+### Build từ mã nguồn bằng Xcode
+
+1. Mở `Package.swift` trong Xcode.
+2. Chọn scheme **LightImage** và đích **My Mac**.
+3. Bấm **Product → Build** (⌘B) để biên dịch hoặc **Product → Run** (⌘R) để chạy.
+
+### Đóng gói từ Terminal
+
 ```sh
 ./scripts/build-app.sh
+./scripts/package-release.sh
 ./scripts/test.sh
 ```
 
-Build script tạo app bundle, biểu tượng, preset mẫu và chữ ký ad-hoc trong `dist/LightImage.app`. Script dùng build system native của SwiftPM; toolchain mới có thể cảnh báo deprecated. Xcode cũng mở trực tiếp `Package.swift` được.
+Script build tạo app bundle, biểu tượng, preset mẫu và chữ ký ad-hoc trong `dist/LightImage.app`. Script đóng gói tạo thêm `.dmg` và `.app.zip` trong `dist/releases/<phiên bản>/`.
+
+Phiên bản có dạng `YY.major.patch (build DDMM.HHMMSS)`. Hai số `major.patch` lấy từ `CFBundleShortVersionString` trong `Resources/Info.plist`. Script điền năm và thời điểm build theo giờ Việt Nam.
 
 22 kiểm thử XCTest bao gồm XMP với namespace thay đổi, tên localized, metadata lồng nhau, đường cong, `.lrtemplate`, dữ liệu lỗi/DTD, giữ thông số không có trong preset, cường độ bằng 0, catalog round-trip, thay đổi pixel thật, pipeline trung tính, cắt/xoay, xuất JPEG/PNG/TIFF 16-bit, ghi đè tệp xuất và giữ nguyên nguồn. Kiểm thử kết xuất cần truy cập các dịch vụ đồ họa macOS; sandbox công cụ chặn GPU có thể khiến Core Image trả ảnh rỗng. Bộ kiểm thử mới còn kiểm chứng hue đi qua 0°, default/amount, calibration giữ xám trung tính, phân vùng parametric và grading, màu đen trắng được toning, giảm nhiễu màu giữ luminance, radius/detail/masking ảnh hưởng riêng, AutoTone/dehaze, transform giữ kích thước canvas, và cập nhật preset giữ ID. Kiểm thử tệp preset riêng được bật bằng biến `LIGHTIMAGE_PRESET_FIXTURE`; không phân phối lại preset của người dùng trong mã nguồn.
 

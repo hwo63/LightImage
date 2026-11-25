@@ -83,7 +83,7 @@ struct ContentView: View {
             if model.isRendering || model.isExporting || model.isImporting { ProgressView().controlSize(.mini) }
             Text(model.saved ? "Đã lưu trên máy" : "Đang lưu…")
             Text("·").padding(.horizontal, 5)
-            Text("LightImage 1.6.5").foregroundStyle(Theme.muted)
+            Text(LightImageVersion.displayName).foregroundStyle(Theme.muted)
         }.font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.horizontal, 20).frame(height: 28).background(Theme.panel)
     }
 }
