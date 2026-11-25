@@ -115,7 +115,7 @@ Các script tạo bản dựng theo kiến trúc của Mac đang build. Số phi
 
 ## Giấy phép và đóng góp
 
-LightImage phát hành theo [giấy phép MIT](LICENSE) và lấy cảm hứng từ [Lightcraft](https://github.com/storytold/lightcraft). Nếu gửi lỗi qua [GitHub Issues](https://github.com/hwo63/LightImage/issues), hãy ghi phiên bản LightImage, phiên bản macOS và các bước tái hiện.
+LightImage phát hành theo [giấy phép MIT](https://github.com/hwo63/LightImage/blob/main/LICENSE) và lấy cảm hứng từ Lightroom và [Lightcraft](https://github.com/storytold/lightcraft), và ý tưởng sử dụng được preset của lightroom. Nếu gửi lỗi qua [GitHub Issues](https://github.com/hwo63/LightImage/issues), hãy ghi phiên bản LightImage, phiên bản macOS và các bước tái hiện. Nếu fork về phát triển thêm, vui lòng ghi thêm nguồn cảm hứng từ dự án LightImage này.
 
 ## Mời mình một ly cà phê ☕
 
