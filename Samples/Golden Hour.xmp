@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/"
+   crs:PresetType="Normal" crs:ProcessVersion="11.0"
+   crs:Exposure2012="0.25" crs:Contrast2012="12" crs:Highlights2012="-35"
+   crs:Shadows2012="20" crs:IncrementalTemperature="18" crs:Vibrance="15"
+   crs:SaturationAdjustmentGreen="-20" crs:PostCropVignetteAmount="-12">
+   <crs:Name><rdf:Alt><rdf:li xml:lang="x-default">Golden Hour · XMP demo</rdf:li></rdf:Alt></crs:Name>
+   <crs:Group><rdf:Alt><rdf:li xml:lang="x-default">Preset mẫu</rdf:li></rdf:Alt></crs:Group>
+   <crs:ToneCurvePV2012><rdf:Seq><rdf:li>0, 8</rdf:li><rdf:li>64, 58</rdf:li><rdf:li>128, 132</rdf:li><rdf:li>192, 203</rdf:li><rdf:li>255, 250</rdf:li></rdf:Seq></crs:ToneCurvePV2012>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>

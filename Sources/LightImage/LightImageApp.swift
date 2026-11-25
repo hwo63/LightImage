@@ -1,0 +1,103 @@
+import SwiftUI
+import AppKit
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    var model: AppModel?
+    var pendingURLs: [URL] = []
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if model?.isExporting == true {
+            let alert = NSAlert(); alert.messageText = "Ảnh đang được xuất"; alert.informativeText = "Đợi xuất ảnh xong trước khi đóng LightImage."; alert.runModal(); return .terminateCancel
+        }
+        model?.save(flush: true); return .terminateNow
+    }
+    func application(_ application: NSApplication, open urls: [URL]) {
+        if let model { model.importURLs(urls) } else { pendingURLs.append(contentsOf: urls) }
+    }
+}
+
+@main struct LightImageApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var model = AppModel()
+    var body: some Scene {
+        WindowGroup("LightImage") {
+            ContentView().environmentObject(model)
+                .preferredColorScheme(.dark)
+                .frame(minWidth: 1120, minHeight: 740)
+                .onAppear {
+                    delegate.model = model
+                    if !delegate.pendingURLs.isEmpty {
+                        model.importURLs(delegate.pendingURLs)
+                        delegate.pendingURLs = []
+                    }
+                    NSApp.setActivationPolicy(.regular)
+                    NSApp.activate(ignoringOtherApps: true)
+                    if ProcessInfo.processInfo.arguments.contains("--demo"), model.catalog.photos.isEmpty { model.loadDemo() }
+                }
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1460, height: 940)
+        .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("Giới thiệu LightImage") { showAbout() }
+            }
+            CommandGroup(replacing: .newItem) {
+                Button("Nhập ảnh…") { model.importPhotos() }.keyboardShortcut("o")
+                Button("Nhập preset Lightroom…") { model.importPresets() }.keyboardShortcut("i", modifiers: [.command, .shift])
+                Divider()
+                Button("Xuất ảnh…") { model.exportSheet = true }.keyboardShortcut("e").disabled(model.selected == nil)
+            }
+            CommandGroup(replacing: .undoRedo) {
+                Button("Hoàn tác") { model.undo() }.keyboardShortcut("z").disabled(!model.canUndo)
+                Button("Làm lại") { model.redo() }.keyboardShortcut("z", modifiers: [.command, .shift]).disabled(!model.canRedo)
+            }
+            CommandMenu("Ảnh") {
+                Button("Sao chép chỉnh sửa") { model.copyBuffer = model.edits }.keyboardShortcut("c", modifiers: [.command, .shift]).disabled(model.selected == nil)
+                Button("Dán chỉnh sửa") { model.pasteEdits() }.keyboardShortcut("v", modifiers: [.command, .shift]).disabled(model.copyBuffer == nil || model.selected == nil)
+                Button("Khôi phục ảnh gốc") { model.reset() }.disabled(model.selected == nil)
+                Divider()
+                Button("So sánh trước / sau") { model.compare.toggle(); model.splitCompare = false }.keyboardShortcut("\\", modifiers: []).disabled(model.selected == nil)
+                Button("So sánh kéo vạch") { model.splitCompare.toggle(); model.compare = false }
+                    .keyboardShortcut("y", modifiers: [.shift]).disabled(model.selected == nil)
+                Button("Chỉnh theo vùng…") { model.maskSheet = true }
+                    .keyboardShortcut("m", modifiers: [.command, .shift]).disabled(model.selected == nil)
+                Button("Tạo bản sao ảo") { if let id = model.selectedID { model.makeVirtualCopy(id) } }
+                    .keyboardShortcut("d", modifiers: [.command, .shift]).disabled(model.selected == nil)
+                Button("Đánh dấu ảnh") { model.toggleFlag() }.keyboardShortcut("p", modifiers: []).disabled(model.selected == nil)
+                Button("Ảnh trước") { model.moveSelection(-1) }.keyboardShortcut(.leftArrow, modifiers: [.command])
+                Button("Ảnh tiếp") { model.moveSelection(1) }.keyboardShortcut(.rightArrow, modifiers: [.command])
+                Divider()
+                ForEach(0..<6) { rating in
+                    Button(rating == 0 ? "Bỏ đánh giá" : "\(rating) sao") { model.setRating(rating) }.keyboardShortcut(KeyEquivalent(Character(String(rating))), modifiers: [.control])
+                }
+            }
+            CommandGroup(replacing: .help) {
+                Button("Về tương thích preset Lightroom") {
+                    model.notice = "LightImage nhập .xmp và .lrtemplate. Các thông số ánh sáng, cân bằng trắng, HSL, đường cong RGB, trắng đen, độ nét, giảm nhiễu và vignette được mô phỏng bằng Core Image.\n\nKhông dùng bộ xử lý Adobe: màu không thể bảo đảm giống hệt Lightroom. Đã bổ sung calibration RGB, split toning/color grading, parametric curves, AutoTone theo histogram, dehaze, giảm nhiễu màu, sharpen radius/detail/masking và transform scale/X/Y.\n\nProfile/LUT Adobe, mask, healing, AI denoise, sửa quang sai, lens correction, grain và các mục chưa hỗ trợ sẽ được liệt kê khi nhập.\n\nRAW phụ thuộc camera và phiên bản macOS. Xuất JPEG/PNG 8-bit hoặc TIFF 16-bit, sRGB; không sao chép EXIF/GPS. Chỉnh sửa và preset được lưu cục bộ; ảnh gốc không bị sửa."
+                }
+                Button("Mở thư mục dữ liệu LightImage") { NSWorkspace.shared.open(model.dataDirectory) }
+            }
+        }
+    }
+
+    private func showAbout() {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineSpacing = 3
+
+        let credits = NSMutableAttributedString(
+            string: "Miễn phí và mã nguồn mở\n\n",
+            attributes: [.font: NSFont.boldSystemFont(ofSize: 13), .paragraphStyle: paragraph]
+        )
+        credits.append(NSAttributedString(
+            string: "LightImage là ứng dụng chỉnh ảnh cho macOS. Bạn có thể nhập preset Adobe Lightroom (.xmp và .lrtemplate) rồi áp dụng trực tiếp lên ảnh đang chỉnh.\n\nPhát hành theo giấy phép MIT.\n",
+            attributes: [.font: NSFont.systemFont(ofSize: 12), .paragraphStyle: paragraph]
+        ))
+        let repository = URL(string: "https://github.com/hwo63/LightImage")!
+        credits.append(NSAttributedString(
+            string: "Xem mã nguồn trên GitHub",
+            attributes: [.font: NSFont.systemFont(ofSize: 12), .paragraphStyle: paragraph, .link: repository]
+        ))
+        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+    }
+}

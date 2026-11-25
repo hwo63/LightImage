@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+ <key>CFBundleName</key><string>LightImage</string>
+ <key>CFBundleDisplayName</key><string>LightImage</string>
+ <key>CFBundleIdentifier</key><string>vn.hwo.LightImage</string>
+ <key>CFBundleVersion</key><string>23</string>
+ <key>CFBundleShortVersionString</key><string>1.6.5</string>
+ <key>CFBundleExecutable</key><string>LightImage</string>
+ <key>CFBundlePackageType</key><string>APPL</string>
+ <key>CFBundleIconFile</key><string>AppIcon</string>
+ <key>LSMinimumSystemVersion</key><string>14.0</string>
+ <key>NSHighResolutionCapable</key><true/>
+ <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
+ <key>NSPrincipalClass</key><string>NSApplication</string>
+ <key>NSHumanReadableCopyright</key><string>LightImage · HWO. Ứng dụng chỉnh ảnh độc lập.</string>
+ <key>CFBundleDocumentTypes</key><array>
+  <dict><key>CFBundleTypeName</key><string>Images</string><key>CFBundleTypeRole</key><string>Viewer</string><key>LSHandlerRank</key><string>Alternate</string><key>LSItemContentTypes</key><array><string>public.image</string><string>public.camera-raw-image</string></array></dict>
+  <dict><key>CFBundleTypeName</key><string>Lightroom Preset</string><key>CFBundleTypeRole</key><string>Viewer</string><key>LSHandlerRank</key><string>Alternate</string><key>CFBundleTypeExtensions</key><array><string>xmp</string><string>lrtemplate</string></array></dict>
+ </array>
+</dict></plist>

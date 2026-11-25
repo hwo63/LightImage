@@ -1,0 +1,17 @@
+s = {
+  id = "lightimage-silver-matte-example",
+  title = "Silver Matte · Legacy demo",
+  type = "Develop",
+  value = {
+    settings = {
+      ProcessVersion = "6.7",
+      ConvertToGrayscale = true,
+      Exposure2012 = 0.15,
+      Contrast2012 = 22,
+      Highlights2012 = -20,
+      Shadows2012 = 15,
+      Clarity2012 = 10,
+      ToneCurvePV2012 = { 0, 18, 64, 55, 128, 130, 192, 204, 255, 248 },
+    },
+  },
+}
