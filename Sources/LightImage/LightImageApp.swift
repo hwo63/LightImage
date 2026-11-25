@@ -86,17 +86,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         paragraph.lineSpacing = 3
 
         let credits = NSMutableAttributedString(
-            string: "Miễn phí và mã nguồn mở\n\n",
+            string: "Miễn phí và mã nguồn mở\n",
             attributes: [.font: NSFont.boldSystemFont(ofSize: 13), .paragraphStyle: paragraph]
         )
+        let bodyStyle: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12), .paragraphStyle: paragraph
+        ]
         credits.append(NSAttributedString(
-            string: "LightImage là ứng dụng chỉnh ảnh cho macOS. Bạn có thể nhập preset Adobe Lightroom (.xmp và .lrtemplate) rồi áp dụng trực tiếp lên ảnh đang chỉnh.\n\nPhát hành theo giấy phép MIT.\n",
-            attributes: [.font: NSFont.systemFont(ofSize: 12), .paragraphStyle: paragraph]
+            string: "Giấy phép MIT · ", attributes: bodyStyle
         ))
         let repository = URL(string: "https://github.com/hwo63/LightImage")!
         credits.append(NSAttributedString(
             string: "Xem mã nguồn trên GitHub",
-            attributes: [.font: NSFont.systemFont(ofSize: 12), .paragraphStyle: paragraph, .link: repository]
+            attributes: bodyStyle.merging([.link: repository]) { _, link in link }
+        ))
+        credits.append(NSAttributedString(
+            string: "\n\nỨng dụng chỉnh ảnh cho macOS hỗ trợ nhập và áp dụng trực tiếp preset Adobe Lightroom (.xmp và .lrtemplate).",
+            attributes: bodyStyle
         ))
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }
