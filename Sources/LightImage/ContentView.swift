@@ -13,6 +13,7 @@ enum Theme {
 
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
+    @EnvironmentObject var updater: AppUpdater
     @State private var dropTargeted = false
     var body: some View {
         VStack(spacing: 0) {
@@ -84,6 +85,20 @@ struct ContentView: View {
             Text(model.saved ? "Đã lưu trên máy" : "Đang lưu…")
             Text("·").padding(.horizontal, 5)
             Text(LightImageVersion.displayName).foregroundStyle(Theme.muted)
+            if let version = updater.readyVersion {
+                Button {
+                    updater.restartToUpdate(model: model)
+                } label: {
+                    Label("Restart to Update", systemImage: "arrow.clockwise")
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 4))
+                        .foregroundStyle(Theme.background)
+                }
+                .disabled(model.isImporting || model.isExporting)
+                .help("LightImage \(version) đã tải xong. Bấm để lưu, cài đặt và mở lại.")
+            }
         }.font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.horizontal, 20).frame(height: 28).background(Theme.panel)
     }
 }

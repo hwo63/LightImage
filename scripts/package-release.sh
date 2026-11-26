@@ -4,14 +4,15 @@ cd "$(dirname "$0")/.."
 
 ./scripts/build-app.sh
 
-app="$PWD/dist/LightImage.app"
+output_dir=${LIGHTIMAGE_OUTPUT_DIR:-"$PWD/dist"}
+app="$output_dir/LightImage.app"
 plist="$app/Contents/Info.plist"
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$plist")
 stamp=$(/usr/libexec/PlistBuddy -c 'Print :LightImageBuildStamp' "$plist")
 architecture=$(uname -m)
 name="LightImage-$version-$stamp-macOS-$architecture"
 stage=$(mktemp -d "$PWD/.build/release-package.XXXXXX")
-release="$PWD/dist/releases/$version"
+release="$output_dir/releases/$version"
 mkdir -p "$stage/disk" "$release"
 
 ditto "$app" "$stage/disk/LightImage.app"

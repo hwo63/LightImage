@@ -1,0 +1,153 @@
+name: Release LightImage for macOS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Resources/Info.plist
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lightimage-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'hwo63/LightImage' && github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Find the version and previous release
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          pattern='^[0-9]{2}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          if [[ ! "$version" =~ $pattern ]]; then
+            echo "::error::CFBundleShortVersionString must be YY.major.patch."
+            exit 1
+          fi
+
+          published=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name')
+          previous=$(printf '%s\n' "$published" | sed -nE 's/^v([0-9]{2}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))$/\1/p' \
+            | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
+          if [[ -n "$previous" ]]; then
+            newest=$(printf '%s\n' "$previous" "$version" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
+            if [[ "$newest" == "$previous" ]]; then
+              echo "Version $version is already published or older than $previous."
+              exit 0
+            fi
+            if ! git merge-base --is-ancestor "v$previous" "$GITHUB_SHA"; then
+              echo "::error::The previous release tag must be an ancestor of the release commit."
+              exit 1
+            fi
+          fi
+
+          tag="v$version"
+          if git show-ref --verify --quiet "refs/tags/$tag" && [[ "$(git rev-parse "$tag^{commit}")" != "$GITHUB_SHA" ]]; then
+            echo "::error::Tag $tag points to a different commit."
+            exit 1
+          fi
+
+          {
+            printf 'version=%s\ntag=%s\nprevious=%s\n' "$version" "$tag" "$previous"
+            printf 'publish=true\n'
+          } >> "$GITHUB_OUTPUT"
+          printf 'LIGHTIMAGE_BUILD_EPOCH=%s\n' "$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
+
+      - name: Verify updater signing configuration
+        if: steps.version.outputs.publish == 'true'
+        shell: bash
+        env:
+          LIGHTIMAGE_UPDATE_PRIVATE_KEY: ${{ secrets.LIGHTIMAGE_UPDATE_PRIVATE_KEY }}
+          EXPECTED_UPDATE_PUBLIC_KEY: ${{ vars.LIGHTIMAGE_UPDATE_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$LIGHTIMAGE_UPDATE_PRIVATE_KEY" || -z "$EXPECTED_UPDATE_PUBLIC_KEY" ]]; then
+            echo "::error::Configure the LightImage updater signing secret and public key variable before releasing."
+            exit 1
+          fi
+          key=$(swift scripts/sign-update.swift --public-key)
+          if [[ "$key" != "$EXPECTED_UPDATE_PUBLIC_KEY" ]]; then
+            echo "::error::The configured update signing keys do not match."
+            exit 1
+          fi
+          printf 'LIGHTIMAGE_UPDATE_PUBLIC_KEY=%s\n' "$key" >> "$GITHUB_ENV"
+
+      - name: Build and package LightImage
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          ./scripts/test.sh
+          ./scripts/package-release.sh
+
+      - name: Create release notes and sign the update
+        if: steps.version.outputs.publish == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+          LIGHTIMAGE_UPDATE_PRIVATE_KEY: ${{ secrets.LIGHTIMAGE_UPDATE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          release="dist/releases/$VERSION"
+          stamp=$(/usr/libexec/PlistBuddy -c 'Print :LightImageBuildStamp' dist/LightImage.app/Contents/Info.plist)
+          arch=$(uname -m)
+          name="LightImage-$VERSION-$stamp-macOS-$arch"
+          swift scripts/sign-update.swift "$VERSION" "$arch" "$release/$name.app.zip" "$release"
+
+          range=("$GITHUB_SHA")
+          if [[ -n "$PREVIOUS" ]]; then range=("v$PREVIOUS..$GITHUB_SHA"); fi
+          {
+            printf '## LightImage %s (build %s)\n\n' "$VERSION" "$stamp"
+            printf '### Các thay đổi\n\n'
+            git log --no-merges --format='- %s (`%h`)' "${range[@]}"
+            if [[ -n "$PREVIOUS" ]]; then
+              printf '\n[Xem toàn bộ thay đổi](https://github.com/%s/compare/v%s...v%s)\n' "$GITHUB_REPOSITORY" "$PREVIOUS" "$VERSION"
+            fi
+            printf '\n### Cài đặt\n\n'
+            printf 'Bản này dành cho Mac Apple Silicon chạy macOS 14 trở lên. Mở DMG và kéo LightImage vào Applications, hoặc giải nén tệp .app.zip.\n\n'
+            printf 'Bản cài ký ad-hoc. Nếu macOS chặn mở bản tải về, xem [hướng dẫn build bằng Xcode](https://github.com/%s#build-từ-mã-nguồn-bằng-xcode).\n' "$GITHUB_REPOSITORY"
+          } > "$release/Release.md"
+
+      - name: Publish GitHub Release and assets
+        if: steps.version.outputs.publish == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          release="dist/releases/$VERSION"
+          stamp=$(/usr/libexec/PlistBuddy -c 'Print :LightImageBuildStamp' dist/LightImage.app/Contents/Info.plist)
+          arch=$(uname -m)
+          name="LightImage-$VERSION-$stamp-macOS-$arch"
+          title="LightImage $VERSION (build $stamp)"
+          draft=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\") | [.draft, .target_commitish] | @tsv")
+          if [[ -z "$draft" ]]; then
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$title" --notes-file "$release/Release.md"
+          elif [[ "$draft" != "true"$'\t'"$GITHUB_SHA" ]]; then
+            echo "::error::A release with this tag already exists outside this build."
+            exit 1
+          fi
+          gh release upload "$TAG" --clobber \
+            "$release/$name.dmg" "$release/$name.app.zip" "$release/Release.md" \
+            "$release/LightImage-update-$arch.json" "$release/LightImage-update-$arch.sig"
+          gh release edit "$TAG" --draft=false --latest --title "$title" --notes-file "$release/Release.md"

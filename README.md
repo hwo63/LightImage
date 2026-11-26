@@ -34,6 +34,12 @@ Bản cài sẵn trên GitHub Releases dành cho **Mac Apple Silicon chạy macO
 
 Bản thử hiện được ký ad-hoc. Nếu macOS chặn bản tải về vì thiếu chữ ký Developer ID và notarization, bạn có thể [build từ mã nguồn bằng Xcode](#build-từ-mã-nguồn-bằng-xcode).
 
+### Cập nhật trong ứng dụng
+
+Các bản cài có bộ tự cập nhật kiểm tra GitHub Releases khi mở LightImage và định kỳ trong lúc ứng dụng chạy. Khi gói mới đã tải xong và qua kiểm tra chữ ký, **Restart to Update** xuất hiện ở góc dưới bên phải. Bấm nút để lưu thư viện, cài rồi mở lại LightImage. Bạn vẫn dùng phiên bản cũ khi chưa bấm, kể cả khi thoát ứng dụng theo cách thông thường.
+
+Nếu đang dùng bản **26.0.1** đã phát hành, hãy cài thủ công một lần khi bản đầu tiên có bộ tự cập nhật xuất hiện. Mở ứng dụng từ Applications để LightImage có thể cập nhật tệp cài.
+
 ## Bắt đầu chỉnh ảnh
 
 1. Bấm **Nhập ảnh** (⌘O) hoặc kéo ảnh hay thư mục vào ứng dụng. Chọn **Khám phá với ảnh minh họa** nếu muốn thử ngay.
@@ -105,6 +111,20 @@ Chạy lệnh trong thư mục có `Package.swift`. Chọn lệnh theo tệp đ�
 | `./scripts/test.sh` | Chạy kiểm thử SwiftPM, gồm nhập preset, xử lý màu, mặt nạ, chân dung và xuất ảnh. |
 
 Các script tạo bản dựng theo kiến trúc của Mac đang build. Số phiên bản hiển thị theo mẫu `YY.major.patch (build DDMM.HHMMSS)`, với ngày giờ tính theo giờ Việt Nam.
+
+### Phát hành bản mới trên GitHub
+
+Workflow trên `hwo63/LightImage` chạy khi `Resources/Info.plist` thay đổi trên `main`. Tăng `CFBundleShortVersionString` theo mẫu `YY.major.patch` rồi đưa commit lên `main`. GitHub Actions kiểm thử và đóng gói `.app.zip` cùng `.dmg` cho Apple Silicon. Nó cũng tạo `Release.md` từ các commit kể từ tag phát hành trước, đính kèm file vào release và dùng chính nội dung đó làm ghi chú phát hành. Có thể chạy lại workflow **Release LightImage for macOS** từ tab **Actions**.
+
+Thiết lập khóa ký một lần trước lần phát hành đầu tiên dùng workflow này. Chạy lệnh dưới đây tại thư mục repo. Lệnh lưu khóa riêng tư vào tệp chỉ tài khoản hiện tại đọc được và in khóa công khai.
+
+```sh
+swift scripts/sign-update.swift --create-key ~/.lightimage-update-key
+```
+
+Trong **Settings → Secrets and variables → Actions**, lưu nội dung tệp khóa riêng tư vào secret `LIGHTIMAGE_UPDATE_PRIVATE_KEY` và chuỗi công khai vào repository variable `LIGHTIMAGE_UPDATE_PUBLIC_KEY`. Nếu dùng GitHub CLI đã đăng nhập, có thể chuyển khóa riêng tư qua stdin bằng `gh secret set LIGHTIMAGE_UPDATE_PRIVATE_KEY --repo hwo63/LightImage < ~/.lightimage-update-key`.
+
+Giữ bản sao khóa riêng tư ở nơi an toàn. Dùng cùng khóa cho các bản phát hành sau để bản đã cài tiếp tục xác thực được gói cập nhật. Khóa này ký gói cập nhật của LightImage. Chữ ký Developer ID và notarization của macOS là bước phân phối riêng.
 
 ### Cấu trúc mã nguồn
 

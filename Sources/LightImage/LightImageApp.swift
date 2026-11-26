@@ -12,15 +12,37 @@ enum LightImageVersion {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     var model: AppModel?
     var pendingURLs: [URL] = []
+    let updater = AppUpdater()
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if updater.restartRequested {
+            guard let model, !model.isExporting, !model.isImporting else {
+                updater.cancelRestart()
+                return .terminateCancel
+            }
+            model.save(flush: true)
+            guard model.saved else {
+                updater.cancelRestart()
+                return .terminateCancel
+            }
+            do {
+                try updater.handOffInstallation()
+                return .terminateNow
+            } catch {
+                updater.cancelRestart()
+                model.error = "Không thể mở trình cập nhật LightImage. Bản hiện tại vẫn đang chạy."
+                return .terminateCancel
+            }
+        }
         if model?.isExporting == true {
             let alert = NSAlert(); alert.messageText = "Ảnh đang được xuất"; alert.informativeText = "Đợi xuất ảnh xong trước khi đóng LightImage."; alert.runModal(); return .terminateCancel
         }
-        model?.save(flush: true); return .terminateNow
+        model?.save(flush: true)
+        updater.cancelBackgroundCheck()
+        return .terminateNow
     }
     func application(_ application: NSApplication, open urls: [URL]) {
         if let model { model.importURLs(urls) } else { pendingURLs.append(contentsOf: urls) }
@@ -32,10 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @StateObject private var model = AppModel()
     var body: some Scene {
         WindowGroup("LightImage") {
-            ContentView().environmentObject(model)
+            ContentView().environmentObject(model).environmentObject(delegate.updater)
                 .preferredColorScheme(.dark)
                 .frame(minWidth: 1120, minHeight: 740)
                 .onAppear {
+                    if delegate.model == nil, ProcessInfo.processInfo.arguments.contains("--update-failed") {
+                        model.status = "Không cài được bản cập nhật. LightImage đã mở lại bản trước."
+                    }
                     delegate.model = model
                     if !delegate.pendingURLs.isEmpty {
                         model.importURLs(delegate.pendingURLs)
@@ -43,6 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     NSApp.setActivationPolicy(.regular)
                     NSApp.activate(ignoringOtherApps: true)
+                    delegate.updater.start()
                     if ProcessInfo.processInfo.arguments.contains("--demo"), model.catalog.photos.isEmpty { model.loadDemo() }
                 }
         }
