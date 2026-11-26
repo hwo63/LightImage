@@ -7,8 +7,9 @@
 <p align="center">Trình chỉnh ảnh miễn phí, mã nguồn mở cho macOS, hỗ trợ preset Adobe Lightroom.</p>
 
 <p align="center">
-  <a href="https://github.com/hwo63/LightImage/releases">Tải bản cài đặt</a> ·
+  <a href="https://github.com/hwo63/LightImage/releases/latest">Tải bản mới nhất</a> ·
   <a href="#bắt-đầu-chỉnh-ảnh">Hướng dẫn sử dụng</a> ·
+  <a href="#so-sánh-với-lightroom-và-lightcraft">So sánh tính năng</a> ·
   <a href="#build-từ-mã-nguồn-bằng-xcode">Build bằng Xcode</a> ·
   <a href="LICENSE">Giấy phép MIT</a>
 </p>
@@ -17,11 +18,11 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-Bản cài sẵn trên GitHub Releases dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. Nếu kho đang ở chế độ riêng tư, hãy đăng nhập GitHub bằng tài khoản có quyền truy cập kho.
+Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. Bản **26.0.2** đưa tính năng **Restart to Update** vào ứng dụng. [Xem bản phát hành 26.0.2](https://github.com/hwo63/LightImage/releases/tag/v26.0.2)
 
 ### Cài bằng DMG
 
-1. Mở [GitHub Releases](https://github.com/hwo63/LightImage/releases), chọn phiên bản cần tải và mở phần **Assets**.
+1. Mở [bản phát hành mới nhất](https://github.com/hwo63/LightImage/releases/latest) và xem phần **Assets**.
 2. Tải tệp có đuôi `.dmg` rồi mở tệp đã tải.
 3. Kéo **LightImage.app** vào thư mục **Applications** trong cửa sổ bộ cài.
 4. Mở **LightImage** từ **Applications**. Sau đó bạn có thể đẩy ổ đĩa LightImage ra trong Finder.
@@ -36,9 +37,9 @@ Bản thử hiện được ký ad-hoc. Nếu macOS chặn bản tải về vì 
 
 ### Cập nhật trong ứng dụng
 
-Các bản cài có bộ tự cập nhật kiểm tra GitHub Releases khi mở LightImage và định kỳ trong lúc ứng dụng chạy. Khi gói mới đã tải xong và qua kiểm tra chữ ký, **Restart to Update** xuất hiện ở góc dưới bên phải. Bấm nút để lưu thư viện, cài rồi mở lại LightImage. Bạn vẫn dùng phiên bản cũ khi chưa bấm, kể cả khi thoát ứng dụng theo cách thông thường.
+Từ bản cài **26.0.2**, LightImage kiểm tra GitHub Releases khi mở ứng dụng và định kỳ trong lúc chạy. Khi gói mới đã tải xong và qua kiểm tra chữ ký, **Restart to Update** xuất hiện ở góc dưới bên phải. Bấm nút để lưu thư viện, cài rồi mở lại LightImage. Bạn vẫn dùng phiên bản hiện tại khi chưa bấm, kể cả khi thoát ứng dụng theo cách thông thường.
 
-Nếu đang dùng bản **26.0.1** đã phát hành, hãy cài thủ công một lần khi bản đầu tiên có bộ tự cập nhật xuất hiện. Mở ứng dụng từ Applications để LightImage có thể cập nhật tệp cài.
+Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bản mới một lần. Mở ứng dụng từ **Applications** để LightImage có thể cập nhật tệp cài.
 
 ## Bắt đầu chỉnh ảnh
 
@@ -55,13 +56,29 @@ Nếu đang dùng bản **26.0.1** đã phát hành, hãy cài thủ công một
 | Thư viện | Nhập ảnh và thư mục, tìm theo tên, đánh dấu, đánh giá sao và tạo bản sao ảo. |
 | Ánh sáng và màu | Phơi sáng, tương phản, vùng sáng và vùng tối, cân bằng trắng, HSL 8 nhóm màu, đường cong RGB, đen trắng, Color Grading và Calibration. |
 | Chi tiết và hiệu ứng | Texture, Clarity, Dehaze, độ nét, giảm nhiễu, hạt film và tối góc. |
-| Chỉnh theo vùng | Nhận diện bầu trời, chủ thể và hậu cảnh. Có cọ, gradient và cọ bám viền với xem trước nét đang kéo. |
+| Chỉnh theo vùng | Mặt nạ bầu trời, chủ thể và hậu cảnh. Tô hoặc tẩy trực tiếp với cọ bám viền, xem trước khi rê và kéo cọ. Có điều chỉnh độ mềm, độ đậm và độ nhạy bám viền. |
 | Chân dung | Chọn một hoặc tất cả khuôn mặt để làm sáng da, làm mịn da, thon mặt hoặc thon eo. Apple Vision phân tích ảnh trên máy. |
+| So sánh | Xem Trước/Sau hoặc Kéo vạch với mức zoom và vị trí đồng bộ để kiểm tra màu và chi tiết. |
 | Khung hình và xuất ảnh | Cắt theo tỷ lệ, xoay, lật, cân thẳng và xuất JPEG, PNG hoặc TIFF 16-bit ở sRGB. |
 
 Trong **Chỉnh theo vùng**, dùng **Tô** hoặc **Tẩy** để sửa mép mặt nạ. Khi đang kéo cọ, bấm **Esc** để hủy nét. Giữ **Space** và kéo để di chuyển ảnh. **⌘Z** và **⇧⌘Z** hoàn tác hoặc làm lại từng nét trên mặt nạ đang chọn.
 
 Trong **Kéo vạch**, kéo ngay trên vạch để dịch vạch. Khi đã zoom, kéo ngoài vạch để di chuyển ảnh. Bấm **Vừa khung** để trở về toàn ảnh.
+
+## So sánh với Lightroom và LightCraft
+
+LightImage phù hợp với người dùng Mac muốn tiếp tục dùng bộ preset Lightroom trong một ứng dụng miễn phí, mã nguồn mở. Bạn có thể nhập cả thư mục `.xmp` và `.lrtemplate`, chỉnh cường độ rồi kiểm tra màu ngay bằng chế độ Kéo vạch. Kho ảnh và chỉnh sửa được lưu cục bộ.
+
+| Nhu cầu | LightImage | Adobe Lightroom | LightCraft |
+| --- | --- | --- | --- |
+| Dùng preset | Nhập `.xmp` và `.lrtemplate`, chỉnh cường độ và xem danh sách thông số đọc được. | Lightroom và Lightroom Classic hỗ trợ preset và profile trong hệ sinh thái Camera Raw. | Hỗ trợ preset XMP, `.lcpreset` và đọc, ghi XMP sidecar. |
+| Đối chiếu màu preset | Đã đo với ảnh xuất từ Lightroom. Trên mẫu RAW thử nghiệm, ΔE00 trung bình **4,32** và phân vị 95 **8,965**. | Ảnh xuất từ Lightroom là mốc màu trong phép thử. | Dùng bộ xử lý màu riêng khi đọc thiết lập XMP, nên màu có thể khác ảnh xuất từ Lightroom. |
+| Sửa vùng và chân dung | Mặt nạ tự động, cọ Tô/Tẩy bám viền với xem trước nét, làm sáng hoặc mịn da và chỉnh dáng bằng Apple Vision trên máy. | Có mặt nạ chủ thể, bầu trời, hậu cảnh và vùng da qua Select People. | Có cọ, gradient, mặt nạ theo màu và độ sáng. Select Object và Describe dùng mô hình SAM 3 tùy chọn. |
+| Nền tảng và quy trình | Ứng dụng native cho macOS, giấy phép MIT. Bản cài trên GitHub có nút **Restart to Update** khi bản mới đã tải xong. | Bản desktop theo gói Adobe, với Lightroom Classic và Lightroom đồng bộ giữa các thiết bị. | Trình chỉnh ảnh RAW mã nguồn mở viết bằng Rust, chạy trên macOS, Windows, Linux và web. |
+
+[Tài liệu preset Lightroom Classic](https://helpx.adobe.com/lightroom-classic/desktop/process-and-develop-photos/apply-presets.html) · [Mặt nạ trong Lightroom](https://helpx.adobe.com/lightroom/desktop/edit-photos/masking.html) · [Các gói Adobe Lightroom](https://www.adobe.com/products/photoshop-lightroom/plans.html) · [Tính năng LightCraft](https://github.com/storytold/lightcraft#feature-status)
+
+Phép đo dùng cùng một ảnh RAW Canon CR3 và preset **TRONG TRẺO 3** ở cường độ **100%** trên LightImage 26.0.2 và Lightroom. Hai ảnh xuất được quy về sRGB, lấy mẫu ở 960 × 640 và so từng điểm ảnh theo CIEDE2000. Khoảng 95% điểm ảnh trong mẫu có ΔE00 từ 8,965 trở xuống. [Script đo độ lệch màu](scripts/compare-colors.py)
 
 ## Tương thích Lightroom và RAW
 
@@ -142,5 +159,5 @@ LightImage phát hành theo [giấy phép MIT](https://github.com/hwo63/LightIma
 Nếu LightImage hữu ích với bạn và bạn muốn ủng hộ dự án, bạn có thể quét mã QR bên dưới bằng MoMo hoặc ứng dụng ngân hàng hỗ trợ VietQR. Cảm ơn bạn đã dùng LightImage!
 
 <a href="docs/assets/donate-coffee.png">
-  <img src="docs/assets/donate-coffee.png" width="400" alt="Mã QR MoMo và VietQR để ủng hộ LightImage">
+  <img src="docs/assets/donate-coffee.png" width="200" alt="Mã QR MoMo và VietQR để ủng hộ LightImage">
 </a>
