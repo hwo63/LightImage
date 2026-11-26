@@ -175,6 +175,23 @@ Giữ bản sao khóa riêng tư ở nơi an toàn. Dùng cùng khóa cho các b
 - `Sources/LightImageCore` chứa bộ đọc preset, xử lý ảnh, mặt nạ và chân dung.
 - `Sources/LightImageDiagnostics` và `scripts/compare-colors.py` hỗ trợ đối chiếu màu cục bộ. Script đo màu dùng Pillow, NumPy và scikit-image.
 - `Tests/LightImageCoreTests` chứa kiểm thử. Có thể dùng `LIGHTIMAGE_PRESET_FIXTURE` và `LIGHTIMAGE_PORTRAIT_FIXTURE` để chạy với tệp thử trên máy.
+- [`website/`](website/) chứa trang giới thiệu tĩnh, ảnh, JavaScript và video.
+
+## Triển khai website trên Cloudflare Pages
+
+Trong **Workers & Pages**, chọn **Create application → Pages → Import an existing Git repository**. Kết nối GitHub, chọn `hwo63/LightImage` và dùng các thiết lập sau. [Hướng dẫn triển khai HTML tĩnh trên Cloudflare Pages](https://developers.cloudflare.com/pages/framework-guides/deploy-anything/)
+
+| Thiết lập | Giá trị |
+| --- | --- |
+| Production branch | `main` |
+| Framework preset | `None` |
+| Root directory | Để trống để dùng thư mục gốc của repo |
+| Build command | `exit 0` |
+| Build output directory | `website` |
+
+Bấm **Save and Deploy** để triển khai lần đầu. Cloudflare Pages sẽ tự cập nhật website khi có commit mới trên `main`. Chỉnh nội dung trong `website/` rồi push lên GitHub. [GitHub integration trên Cloudflare Pages](https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/)
+
+Nếu dự án cũ được tạo bằng **Direct Upload**, hãy tạo một dự án Pages mới bằng **Git integration** để tự triển khai từ GitHub. [Quy định của Cloudflare về Direct Upload](https://developers.cloudflare.com/pages/get-started/direct-upload/)
 
 ## Giấy phép và đóng góp
 
