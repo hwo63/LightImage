@@ -18,7 +18,7 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. Bản **26.0.2** đưa tính năng **Restart to Update** vào ứng dụng. [Xem bản phát hành 26.0.2](https://github.com/hwo63/LightImage/releases/tag/v26.0.2)
+Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.3** bổ sung công cụ chân dung và cập nhật ảnh xem trước ngay trong bảng Chỉnh theo vùng. [Xem bản phát hành 26.0.3](https://github.com/hwo63/LightImage/releases/tag/v26.0.3)
 
 ### Cài bằng DMG
 
@@ -57,11 +57,13 @@ Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bả
 | Ánh sáng và màu | Phơi sáng, tương phản, vùng sáng và vùng tối, cân bằng trắng, HSL 8 nhóm màu, đường cong RGB, đen trắng, Color Grading và Calibration. |
 | Chi tiết và hiệu ứng | Texture, Clarity, Dehaze, độ nét, giảm nhiễu, hạt film và tối góc. |
 | Chỉnh theo vùng | Mặt nạ bầu trời, chủ thể và hậu cảnh. Tô hoặc tẩy trực tiếp với cọ bám viền, xem trước khi rê và kéo cọ. Có điều chỉnh độ mềm, độ đậm và độ nhạy bám viền. |
-| Chân dung | Chọn một hoặc tất cả khuôn mặt để làm sáng da, làm mịn da, thon mặt hoặc thon eo. Apple Vision phân tích ảnh trên máy. |
+| Chân dung | Làm sáng da, làm mịn da kèm giảm mụn, thon mặt, eo, tay và chân. Chỉnh riêng sắc màu và độ sáng của tóc bằng mặt nạ cọ. Apple Vision phân tích ảnh trên máy. |
 | So sánh | Xem Trước/Sau hoặc Kéo vạch với mức zoom và vị trí đồng bộ để kiểm tra màu và chi tiết. |
 | Khung hình và xuất ảnh | Cắt theo tỷ lệ, xoay, lật, cân thẳng và xuất JPEG, PNG hoặc TIFF 16-bit ở sRGB. |
 
 Trong **Chỉnh theo vùng**, dùng **Tô** hoặc **Tẩy** để sửa mép mặt nạ. Khi đang kéo cọ, bấm **Esc** để hủy nét. Giữ **Space** và kéo để di chuyển ảnh. **⌘Z** và **⇧⌘Z** hoàn tác hoặc làm lại từng nét trên mặt nạ đang chọn.
+
+Trong **Chân dung**, chọn khuôn mặt rồi kéo thanh **Thon tay** hoặc **Thon chân** khi các khớp tương ứng được nhận diện. **Làm mịn da và giảm mụn** xử lý các đốm nhỏ và bảo vệ chi tiết mắt, môi. Để đổi màu tóc, bấm **Chỉnh tóc**, tô vùng tóc rồi điều chỉnh **Sắc màu tóc**, **Phơi sáng** hoặc **Độ bão hòa**. Dùng **Tẩy** để sửa mép.
 
 Trong **Kéo vạch**, kéo ngay trên vạch để dịch vạch. Khi đã zoom, kéo ngoài vạch để di chuyển ảnh. Bấm **Vừa khung** để trở về toàn ảnh.
 
