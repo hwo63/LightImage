@@ -18,7 +18,7 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.4** bổ sung Xóa vật thể AI, Lens Blur, phục hồi ảnh cũ, chỉnh chân dung cho từng khuôn mặt hoặc cả nhóm, cùng áp dụng preset và xuất ảnh hàng loạt. [Xem bản phát hành 26.0.4](https://github.com/hwo63/LightImage/releases/tag/v26.0.4)
+Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.5** sửa lỗi tìm bản mới khi GitHub giới hạn API ẩn danh và thêm lệnh **Kiểm tra cập nhật…** trong menu LightImage. [Xem bản phát hành 26.0.5](https://github.com/hwo63/LightImage/releases/tag/v26.0.5)
 
 ### Cài bằng DMG
 
@@ -47,6 +47,10 @@ Nếu chưa thấy **Open Anyway**, hãy thử mở LightImage lại từ **Appl
 ### Cập nhật trong ứng dụng
 
 Từ bản cài **26.0.2**, LightImage kiểm tra GitHub Releases khi mở ứng dụng và định kỳ trong lúc chạy. Khi gói mới đã tải xong và qua kiểm tra chữ ký, **Restart to Update** xuất hiện ở góc dưới bên phải. Bấm nút để lưu thư viện, cài rồi mở lại LightImage. Bạn vẫn dùng phiên bản hiện tại khi chưa bấm, kể cả khi thoát ứng dụng theo cách thông thường.
+
+Từ **26.0.5**, chọn **LightImage → Kiểm tra cập nhật…** để kiểm tra ngay. LightImage sẽ báo khi gói mới đã tải xong, khi đang dùng bản mới nhất hoặc khi có lỗi. Trình cập nhật lấy phiên bản mới nhất từ đường dẫn phát hành công khai của GitHub và xác minh chữ ký gói tải về trước khi hiện nút cài đặt.
+
+Nếu đang dùng **26.0.3** hoặc **26.0.4** và chưa thấy **Restart to Update**, hãy tải và cài **26.0.5** thủ công một lần. [Tải bộ cài 26.0.5 trên GitHub](https://github.com/hwo63/LightImage/releases/tag/v26.0.5)
 
 Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bản mới một lần. Mở ứng dụng từ **Applications** để LightImage có thể cập nhật tệp cài.
 
