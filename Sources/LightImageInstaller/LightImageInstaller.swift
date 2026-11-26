@@ -15,6 +15,9 @@ private func swap(_ first: URL, _ second: URL) throws {
     let configuration = NSWorkspace.OpenConfiguration()
     configuration.arguments = arguments
     configuration.createsNewApplicationInstance = true
+    if let dataDirectory = ProcessInfo.processInfo.environment["LIGHTIMAGE_DATA_DIR"] {
+        configuration.environment = ["LIGHTIMAGE_DATA_DIR": dataDirectory]
+    }
     _ = try await NSWorkspace.shared.openApplication(at: app, configuration: configuration)
 }
 

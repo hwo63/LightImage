@@ -122,6 +122,9 @@ jobs:
             fi
             printf '\n### Cài đặt\n\n'
             printf 'Bản này dành cho Mac Apple Silicon chạy macOS 14 trở lên. Mở DMG và kéo LightImage vào Applications, hoặc giải nén tệp .app.zip.\n\n'
+            if [[ "$VERSION" == 26.0.2 ]]; then
+              printf 'Bản 26.0.1 tải từ GitHub cần được cập nhật thủ công một lần. Từ bản này, LightImage có thể tải bản mới và hiện nút **Restart to Update** trong ứng dụng.\n\n'
+            fi
             printf 'Bản cài ký ad-hoc. Nếu macOS chặn mở bản tải về, xem [hướng dẫn build bằng Xcode](https://github.com/%s#build-từ-mã-nguồn-bằng-xcode).\n' "$GITHUB_REPOSITORY"
           } > "$release/Release.md"
 
