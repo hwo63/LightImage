@@ -18,7 +18,7 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.3** bổ sung công cụ chân dung và cập nhật ảnh xem trước ngay trong bảng Chỉnh theo vùng. [Xem bản phát hành 26.0.3](https://github.com/hwo63/LightImage/releases/tag/v26.0.3)
+Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.4** bổ sung Xóa vật thể AI, Lens Blur, phục hồi ảnh cũ, chỉnh chân dung cho từng khuôn mặt hoặc cả nhóm, cùng áp dụng preset và xuất ảnh hàng loạt. [Xem bản phát hành 26.0.4](https://github.com/hwo63/LightImage/releases/tag/v26.0.4)
 
 ### Cài bằng DMG
 
@@ -33,7 +33,16 @@ Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. Lig
 2. Giải nén để lấy **LightImage.app**.
 3. Chuyển ứng dụng vào **Applications** rồi mở từ đó.
 
-Bản thử hiện được ký ad-hoc. Nếu macOS chặn bản tải về vì thiếu chữ ký Developer ID và notarization, bạn có thể [build từ mã nguồn bằng Xcode](#build-từ-mã-nguồn-bằng-xcode).
+### Mở lần đầu nếu macOS chặn LightImage
+
+Bản cài từ GitHub được ký ad-hoc và chưa được Apple notarize. Nếu hộp thoại tải từ Internet có nút **Open (Mở)**, bấm nút đó. Nếu macOS chặn vì không xác minh được nhà phát triển, hãy làm theo các bước sau khi đã kiểm tra mình tải từ [GitHub Releases chính thức của LightImage](https://github.com/hwo63/LightImage/releases).
+
+1. Trong Finder, mở **Applications (Ứng dụng)** rồi nhấp đúp **LightImage.app**. Đóng hộp thoại nếu macOS chặn.
+2. Mở menu ** > System Settings (Cài đặt hệ thống) > Privacy & Security (Quyền riêng tư & Bảo mật)**.
+3. Cuộn xuống mục **Security (Bảo mật)**. Tìm thông báo có tên **LightImage**, rồi bấm **Open Anyway (Vẫn mở)**.
+4. Xác thực nếu macOS yêu cầu, rồi bấm **Open (Mở)** ở hộp thoại xác nhận. Ngoại lệ này chỉ áp dụng cho LightImage.
+
+Nếu chưa thấy **Open Anyway**, hãy thử mở LightImage lại từ **Applications** rồi quay lại **Privacy & Security**. Bạn cũng có thể [build từ mã nguồn bằng Xcode](#build-từ-mã-nguồn-bằng-xcode). [Hướng dẫn mở ứng dụng của Apple](https://support.apple.com/en-us/102445)
 
 ### Cập nhật trong ứng dụng
 
@@ -55,17 +64,32 @@ Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bả
 | --- | --- |
 | Thư viện | Nhập ảnh và thư mục, tìm theo tên, đánh dấu, đánh giá sao và tạo bản sao ảo. |
 | Ánh sáng và màu | Phơi sáng, tương phản, vùng sáng và vùng tối, cân bằng trắng, HSL 8 nhóm màu, đường cong RGB, đen trắng, Color Grading và Calibration. |
-| Chi tiết và hiệu ứng | Texture, Clarity, Dehaze, độ nét, giảm nhiễu, hạt film và tối góc. |
+| Chi tiết và hiệu ứng | Tăng chi tiết, giảm nhiễu sáng và nhiễu màu, phục hồi tương phản và đốm nhỏ trong ảnh cũ. Có thêm Texture, Clarity, Dehaze, hạt film và tối góc. |
+| Xóa vật thể và xóa phông | Tô vật thể để LaMa tạo vùng thay thế. Lens Blur nhận diện chủ thể và chỉnh cường độ mờ hậu cảnh. |
 | Chỉnh theo vùng | Mặt nạ bầu trời, chủ thể và hậu cảnh. Tô hoặc tẩy trực tiếp với cọ bám viền, xem trước khi rê và kéo cọ. Có điều chỉnh độ mềm, độ đậm và độ nhạy bám viền. |
-| Chân dung | Làm sáng da, làm mịn da kèm giảm mụn, thon mặt, eo, tay và chân. Chỉnh riêng sắc màu và độ sáng của tóc bằng mặt nạ cọ. Apple Vision phân tích ảnh trên máy. |
+| Chân dung | Tự nhận diện khuôn mặt để làm trắng da, làm mịn da, xóa đốm mụn nhỏ và thon mặt riêng từng người. Có thêm thon eo, tay và chân, cùng mặt nạ cọ để chỉnh tóc. Apple Vision phân tích ảnh trên máy. |
 | So sánh | Xem Trước/Sau hoặc Kéo vạch với mức zoom và vị trí đồng bộ để kiểm tra màu và chi tiết. |
-| Khung hình và xuất ảnh | Cắt theo tỷ lệ, xoay, lật, cân thẳng và xuất JPEG, PNG hoặc TIFF 16-bit ở sRGB. |
+| Khung hình và xuất ảnh | Cắt theo tỷ lệ, xoay, lật và cân thẳng. Xuất JPEG, PNG hoặc TIFF 16-bit ở sRGB cho ảnh đang mở, ảnh đã chọn, toàn bộ ảnh đã chỉnh hoặc ảnh đang lọc. |
 
 Trong **Chỉnh theo vùng**, dùng **Tô** hoặc **Tẩy** để sửa mép mặt nạ. Khi đang kéo cọ, bấm **Esc** để hủy nét. Giữ **Space** và kéo để di chuyển ảnh. **⌘Z** và **⇧⌘Z** hoàn tác hoặc làm lại từng nét trên mặt nạ đang chọn.
 
-Trong **Chân dung**, chọn khuôn mặt rồi kéo thanh **Thon tay** hoặc **Thon chân** khi các khớp tương ứng được nhận diện. **Làm mịn da và giảm mụn** xử lý các đốm nhỏ và bảo vệ chi tiết mắt, môi. Để đổi màu tóc, bấm **Chỉnh tóc**, tô vùng tóc rồi điều chỉnh **Sắc màu tóc**, **Phơi sáng** hoặc **Độ bão hòa**. Dùng **Tẩy** để sửa mép.
+Khi mở **Chân dung**, LightImage tự nhận diện các khuôn mặt trong ảnh. Chọn **Tất cả khuôn mặt** rồi kéo thanh **Làm trắng da**, **Làm mịn da**, **Xóa mụn** hoặc **Thon mặt** để đặt cùng một mức cho mọi người. Mỗi thanh áp dụng một thông số. Bấm ảnh thu nhỏ để chỉnh riêng một người, hoặc chọn **Dùng mức chung cho khuôn mặt này** để người đó dùng lại các mức chung. **Xóa mụn** đi theo mức **Làm mịn da** cho đến khi bạn đặt mức riêng. Công cụ xử lý các đốm mụn nhỏ và bảo vệ chi tiết mắt, môi.
+
+Dùng **Thon tay** hoặc **Thon chân** khi các khớp tương ứng được nhận diện. Để đổi màu tóc, bấm **Chỉnh tóc**, tô vùng tóc rồi điều chỉnh **Sắc màu tóc**, **Phơi sáng** hoặc **Độ bão hòa**. Dùng **Tẩy** để sửa mép.
 
 Trong **Kéo vạch**, kéo ngay trên vạch để dịch vạch. Khi đã zoom, kéo ngoài vạch để di chuyển ảnh. Bấm **Vừa khung** để trở về toàn ảnh.
+
+### Xóa vật thể, xóa phông và phục hồi
+
+- **Xóa vật thể AI**. Tô phủ vật thể rồi bấm **Lấp vùng bằng AI**. Lần đầu, ứng dụng tải mô hình LaMa Core ML khoảng 217 MB. Quá trình lấp ảnh chạy trên Mac và vùng đã lấp được giữ khi mở lại hoặc xuất ảnh. [Mô hình Core ML](https://huggingface.co/gumka/lama-coreml) · [LaMa và giấy phép Apache 2.0](https://github.com/advimman/lama)
+- **Xóa phông · Lens Blur**. Bấm **Nhận diện chủ thể**, rồi dùng **Độ mờ hậu cảnh** để điều chỉnh hiệu ứng.
+- **Chi tiết & Phục hồi**. Dùng **Tăng chi tiết**, **Giảm nhiễu sáng**, **Giảm nhiễu màu** hoặc **Phục hồi ảnh cũ** để giảm đốm nhỏ và cân lại tương phản của ảnh phai.
+
+### Áp dụng và xuất hàng loạt
+
+1. Đánh dấu ô chọn trên từng ảnh trong **Thư viện** hoặc dải ảnh bên dưới. Dùng **Chọn ảnh đang lọc** để đánh dấu cả danh sách đang hiển thị.
+2. Bấm preset ở cột trái để áp dụng ở cường độ 100% cho mọi ảnh đã đánh dấu. Bấm **Bỏ chọn** trên dải ảnh để quay lại áp dụng từng ảnh.
+3. Mở **Xuất ảnh**. Trong **Phạm vi xuất**, chọn **Ảnh đã chọn** hoặc **Toàn bộ ảnh đã chỉnh**, rồi chọn thư mục đích. Phạm vi **Toàn bộ ảnh đã chỉnh** lấy ảnh từ cả thư viện, kể cả ảnh ngoài bộ lọc hiện tại.
 
 ## So sánh với Lightroom và LightCraft
 
