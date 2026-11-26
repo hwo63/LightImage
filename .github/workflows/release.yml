@@ -153,4 +153,4 @@ jobs:
           gh release upload "$TAG" --clobber \
             "$release/$name.dmg" "$release/$name.app.zip" "$release/Release.md" \
             "$release/LightImage-update-$arch.json" "$release/LightImage-update-$arch.sig"
-          gh release edit "$TAG" --draft=false --latest --title "$title" --notes-file "$release/Release.md"
+          gh release edit "$TAG" --draft=false --prerelease=false --latest --title "$title" --notes-file "$release/Release.md"
