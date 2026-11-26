@@ -5,8 +5,13 @@ import CoreImage
 import ImageIO
 import LightImageCore
 
-actor EdgeBrushHoverRenderer {
+actor MaskGuideRenderer {
     private let engine = ImageEngine()
+
+    func overlay(_ mask: LocalMask) -> CGImage? {
+        guard !Task.isCancelled else { return nil }
+        return try? engine.automaticMaskOverlay(mask)
+    }
 
     func coverage(_ mask: LocalMask, imageSize: CGSize) throws -> CGImage {
         try Task.checkCancellation()
@@ -41,6 +46,12 @@ struct PortraitPreview {
     let thumbnails: [NSImage?]
 }
 
+private struct MaskPreviewRequest: Sendable {
+    let path: String
+    let adjustments: Adjustments
+    let session: UUID
+}
+
 @MainActor final class AppModel: ObservableObject {
     @Published var catalog = Catalog()
     @Published var selectedID: UUID?
@@ -62,10 +73,18 @@ struct PortraitPreview {
     @Published var compare = false
     @Published var splitCompare = false
     @Published private(set) var maskPreview: NSImage?
+    @Published private(set) var maskPreviewError: String?
     @Published var maskSheet = false {
         didSet {
-            if maskSheet { scheduleRender(immediate: true) }
-            else { maskPreview = nil }
+            guard maskSheet != oldValue else { return }
+            if maskSheet {
+                renderWork?.cancel()
+                generation = UUID()
+                isRendering = false
+            } else {
+                resetMaskPreview()
+            }
+            scheduleRender(immediate: true)
         }
     }
     @Published var exportSheet = false
@@ -88,6 +107,10 @@ struct PortraitPreview {
     private var renderWork: DispatchWorkItem?
     private var saveWork: DispatchWorkItem?
     private var generation = UUID()
+    private var maskPreviewSession = UUID()
+    private var maskPreviewSource: CIImage?
+    private var pendingMaskPreview: MaskPreviewRequest?
+    private var isRenderingMaskPreview = false
     private var gestureStart: Adjustments?
     private let cache = PreviewCache()
     private let engine = ImageEngine()
@@ -108,15 +131,17 @@ struct PortraitPreview {
     var canRedo: Bool { !(selectedID.flatMap { redoHistory[$0] } ?? []).isEmpty }
     var activePreset: PhotoPreset? { presets.first { $0.id == selectedPreset } }
 
-    init() {
-        if let override = ProcessInfo.processInfo.environment["LIGHTIMAGE_DATA_DIR"] {
-            dataDirectory = URL(fileURLWithPath: override, isDirectory: true)
+    init(dataDirectory: URL? = nil) {
+        if let dataDirectory {
+            self.dataDirectory = dataDirectory
+        } else if let override = ProcessInfo.processInfo.environment["LIGHTIMAGE_DATA_DIR"] {
+            self.dataDirectory = URL(fileURLWithPath: override, isDirectory: true)
         } else {
-            dataDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("HWO.LightImage", isDirectory: true)
+            self.dataDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("HWO.LightImage", isDirectory: true)
         }
         do {
-            try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
-            let file = dataDirectory.appendingPathComponent("catalog.json")
+            try FileManager.default.createDirectory(at: self.dataDirectory, withIntermediateDirectories: true)
+            let file = self.dataDirectory.appendingPathComponent("catalog.json")
             if FileManager.default.fileExists(atPath: file.path) {
                 catalog = try JSONDecoder().decode(Catalog.self, from: Data(contentsOf: file))
                 guard catalog.version == 1 else { throw LightImageError.exportFailed("Phiên bản thư viện không tương thích.") }
@@ -144,7 +169,7 @@ struct PortraitPreview {
         guard let photo = catalog.photos.first(where: { $0.id == id }) else { return }
         selectedID = id; edits = photo.adjustments; selectedPreset = nil; presetBase = nil
         preview = nil; original = nil; histogram = []; sourceSize = ""; compare = false; splitCompare = false
-        maskPreview = nil
+        resetMaskPreview()
         portraitPreview = nil; portraitAnalysisFailed = false
         scheduleRender(immediate: true)
     }
@@ -313,23 +338,15 @@ struct PortraitPreview {
         if kind != .sky, let data = edits.localMasks?.first(where: {
             $0.kind == .subject || $0.kind == .background
         })?.automaticPNG { return data }
+        let previewSource = selectedID == photo.id && selected?.path == photo.path ? maskPreviewSource : nil
         return try await withCheckedThrowingContinuation { continuation in
             maskQueue.async { [engine] in
                 continuation.resume(with: Result {
-                    let url = URL(fileURLWithPath: photo.path)
-                    let source = try engine.load(url: url, maxDimension: 1200)
+                    let source = try previewSource ?? engine.load(url: URL(fileURLWithPath: photo.path), maxDimension: 1200)
                     return try engine.detectMask(kind, in: source)
                 })
             }
         }
-    }
-    func automaticMaskOverlay(_ mask: LocalMask) async -> NSImage? {
-        let image: CGImage? = await withCheckedContinuation { continuation in
-            maskQueue.async { [engine] in
-                continuation.resume(returning: try? engine.automaticMaskOverlay(mask))
-            }
-        }
-        return image.map { NSImage(cgImage: $0, size: .zero) }
     }
     func selectBrushEdges(_ stroke: LocalMask.BrushStroke, sensitivity: Double) async throws -> BrushEdgeSelection {
         guard let image = maskPreview?.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
@@ -459,6 +476,7 @@ struct PortraitPreview {
         guard let selectedID else { return }
         catalog.photos.removeAll { $0.id == selectedID }; thumbnails[selectedID] = nil
         self.selectedID = nil; preview = nil; original = nil; edits = Adjustments(); generation = UUID()
+        resetMaskPreview()
         portraitPreview = nil; portraitAnalysisFailed = false
         isRendering = false; histogram = []; sourceSize = ""; history[selectedID] = nil; redoHistory[selectedID] = nil
         maskStrokeRedo[selectedID] = nil
@@ -491,20 +509,18 @@ struct PortraitPreview {
     }
     func scheduleRender(immediate: Bool = false) {
         guard let selected else { return }
+        if maskSheet {
+            pendingMaskPreview = MaskPreviewRequest(path: selected.path, adjustments: edits, session: maskPreviewSession)
+            renderNextMaskPreview()
+            return
+        }
         renderWork?.cancel(); let ticket = UUID(); generation = ticket
-        let path = selected.path, snapshot = edits, showPortraits = portraitInspectorOpen, showMasks = maskSheet
+        let path = selected.path, snapshot = edits, showPortraits = portraitInspectorOpen
         isRendering = true
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             do {
-                let source: CIImage
-                if self.cache.path == path, let cached = self.cache.source { source = cached }
-                else {
-                    source = try self.engine.load(url: URL(fileURLWithPath: path), maxDimension: 2400)
-                    self.cache.source = source; self.cache.path = path
-                    self.cache.portraits = nil
-                    self.cache.analysisFailed = false
-                }
+                let source = try self.previewSource(at: path)
                 if showPortraits, self.cache.portraits == nil {
                     let analysis = try? self.engine.analyzePortrait(source)
                     let subjects = analysis?.subjects ?? []
@@ -522,9 +538,7 @@ struct PortraitPreview {
                 }
                 let portraits = self.cache.portraits
                 let analysisFailed = self.cache.analysisFailed
-                let developed = try self.engine.render(source, adjustments: snapshot, unframed: showMasks)
-                let rendered = try showMasks ? self.engine.finishFrame(developed, adjustments: snapshot) : developed
-                let maskImage = try showMasks ? self.engine.cgImage(developed) : nil
+                let rendered = try self.engine.render(source, adjustments: snapshot)
                 let cg = try self.engine.cgImage(rendered)
                 let thumbnail = try self.engine.cgImage(self.engine.resized(rendered, maxDimension: 280))
                 let before = try self.engine.cgImage(self.engine.geometry(source, adjustments: snapshot))
@@ -538,9 +552,6 @@ struct PortraitPreview {
                     self.preview = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
                     self.original = NSImage(cgImage: before, size: NSSize(width: before.width, height: before.height))
                     self.histogram = histogram; self.sourceSize = dimensions; self.isRendering = false
-                    if self.maskSheet, let maskImage {
-                        self.maskPreview = NSImage(cgImage: maskImage, size: .zero)
-                    }
                     if showPortraits {
                         self.portraitPreview = portraits
                         self.portraitAnalysisFailed = analysisFailed
@@ -557,6 +568,55 @@ struct PortraitPreview {
         renderWork = work
         renderQueue.asyncAfter(deadline: .now() + (immediate ? 0 : 0.12), execute: work)
     }
+
+    private func resetMaskPreview() {
+        maskPreviewSession = UUID()
+        pendingMaskPreview = nil
+        maskPreviewSource = nil
+        maskPreview = nil
+        maskPreviewError = nil
+    }
+
+    private func renderNextMaskPreview() {
+        guard !isRenderingMaskPreview, let request = pendingMaskPreview else { return }
+        pendingMaskPreview = nil
+        isRenderingMaskPreview = true
+        renderQueue.async { [weak self] in
+            guard let self else { return }
+            let result = Result {
+                let source = try self.previewSource(at: request.path)
+                let image = try self.engine.render(source, adjustments: request.adjustments, unframed: true)
+                return (source, try self.engine.cgImage(image))
+            }
+            DispatchQueue.main.async {
+                self.isRenderingMaskPreview = false
+                if self.maskPreviewSession == request.session {
+                    // Publish completed frames during a drag while keeping only the latest queued edit.
+                    switch result {
+                    case let .success((source, image)):
+                        self.maskPreviewSource = source
+                        self.maskPreview = NSImage(cgImage: image, size: .zero)
+                        self.maskPreviewError = nil
+                    case let .failure(error):
+                        self.maskPreviewError = error.localizedDescription
+                    }
+                }
+                self.renderNextMaskPreview()
+            }
+        }
+    }
+
+    // Accessed on renderQueue by both preview paths.
+    private nonisolated func previewSource(at path: String) throws -> CIImage {
+        if cache.path == path, let source = cache.source { return source }
+        let source = try engine.load(url: URL(fileURLWithPath: path), maxDimension: 2400)
+        cache.source = source
+        cache.path = path
+        cache.portraits = nil
+        cache.analysisFailed = false
+        return source
+    }
+
     private func createThumbnails(_ photos: [PhotoRecord]) {
         ioQueue.async { [weak self] in
             let renderer = ImageEngine()

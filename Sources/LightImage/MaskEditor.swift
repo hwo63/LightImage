@@ -38,6 +38,7 @@ struct MaskEditor: View {
     @State private var pinchStart: MaskViewport?
     @State private var pointer: CGPoint?
     @State private var draggingSlider = false
+    @State private var adjustingEffect = false
     @State private var detecting: LocalMask.Kind?
     @State private var detectionMessage: String?
     @State private var detectionTask: Task<Void, Never>?
@@ -45,7 +46,7 @@ struct MaskEditor: View {
     @State private var guideRequest: GuideRequest?
     @State private var edgeTask: Task<Void, Never>?
     @State private var edgeMessage: String?
-    @State private var hoverRenderer = EdgeBrushHoverRenderer()
+    @State private var guideRenderer = MaskGuideRenderer()
     @State private var hoverCoverage: HoverCoverage?
     @State private var hoverPreview: HoverResult?
     @State private var latestPreviewRequest: HoverRequest?
@@ -124,6 +125,7 @@ struct MaskEditor: View {
                 Label("Chỉnh theo vùng", systemImage: "circle.lefthalf.filled").font(.headline)
                 Spacer()
                 Toggle("Hiện vùng chọn", isOn: $showGuide).toggleStyle(.checkbox)
+                    .help("Tắt lớp phủ để xem màu ảnh sau khi chỉnh.")
                 Button("Xong") { dismiss() }.buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction)
                     .disabled(edgeTask != nil)
             }
@@ -136,8 +138,12 @@ struct MaskEditor: View {
                             canvas(image, viewport: viewport, size: proxy.size)
                         }
                         zoomControls
-                    } else {
+                    } else if model.maskPreviewError == nil {
                         ProgressView("Đang mở ảnh…").frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    if let error = model.maskPreviewError {
+                        Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(Theme.muted)
+                            .frame(maxWidth: .infinity, maxHeight: model.maskPreview == nil ? .infinity : nil)
                     }
                 }
 
@@ -227,9 +233,9 @@ struct MaskEditor: View {
                 guideRequest = nil
                 return
             }
-            let image = await model.automaticMaskOverlay(active)
+            let image = await guideRenderer.overlay(active)
             guard !Task.isCancelled else { return }
-            automaticGuide = image
+            automaticGuide = image.map { NSImage(cgImage: $0, size: .zero) }
             guideRequest = request
         }
         .onDisappear {
@@ -280,6 +286,7 @@ struct MaskEditor: View {
         return ZStack(alignment: .topLeading) {
             Theme.background
             Image(nsImage: image).resizable().interpolation(.high)
+                .accessibilityLabel("Ảnh xem trước khi chỉnh theo vùng")
                 .frame(width: rect.width, height: rect.height)
                 .overlay { maskGuide(size: rect.size) }
                 .position(x: rect.midX, y: rect.midY)
@@ -323,7 +330,7 @@ struct MaskEditor: View {
             }
             guard let active, hoverCoverage?.key != key,
                   let raster = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
-                  let coverage = try? await hoverRenderer.coverage(active, imageSize: CGSize(width: raster.width, height: raster.height)),
+                  let coverage = try? await guideRenderer.coverage(active, imageSize: CGSize(width: raster.width, height: raster.height)),
                   !Task.isCancelled else { return }
             hoverCoverage = HoverCoverage(key: key, source: image, raster: raster, image: coverage)
         }
@@ -419,7 +426,7 @@ struct MaskEditor: View {
             while !Task.isCancelled, let next = latestPreviewRequest, next != rendered,
                   let coverage = hoverCoverage, coverage.key == next.context.coverage {
                 rendered = next
-                let preview = try? await hoverRenderer.preview(source: coverage.raster, coverage: coverage.image,
+                let preview = try? await guideRenderer.preview(source: coverage.raster, coverage: coverage.image,
                     stroke: next.stroke, sensitivity: next.context.sensitivity, inverted: coverage.key.guide.inverted)
                 guard !Task.isCancelled else { return }
                 if let preview, let latest = latestPreviewRequest,
@@ -464,7 +471,7 @@ struct MaskEditor: View {
     }
 
     @ViewBuilder private func maskGuide(size: CGSize) -> some View {
-        if showGuide, let active {
+        if showGuide, !adjustingEffect, let active {
             if active.kind.isAutomatic {
                 if let automaticGuide, guideRequest?.id == active.id {
                     Image(nsImage: automaticGuide).resizable()
@@ -567,6 +574,7 @@ struct MaskEditor: View {
                 model.modifyMask(mask.id, label: draggingSlider ? nil : title + " • Mặt nạ") { $0[keyPath: key] = value }
             }), in: range, step: step, onEditingChanged: { editing in
                 draggingSlider = editing
+                adjustingEffect = editing && key != \.feather
                 if !editing { model.endGesture(title + " • Mặt nạ") }
             }).controlSize(.mini).accessibilityLabel(title)
         }

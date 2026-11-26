@@ -14,6 +14,7 @@ let package = Package(
         .executableTarget(name: "LightImageInstaller"),
         .executableTarget(name: "LightImageDiagnostics", dependencies: ["LightImageCore"]),
         .testTarget(name: "LightImageCoreTests", dependencies: ["LightImageCore"]),
+        .testTarget(name: "LightImageTests", dependencies: ["LightImage", "LightImageCore"]),
         .testTarget(name: "LightImageUpdateTests", dependencies: ["LightImage"])
     ]
 )
