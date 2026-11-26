@@ -4,6 +4,7 @@ import LightImageCore
 struct PortraitControls: View {
     @EnvironmentObject private var model: AppModel
     @State private var locatingWaist = false
+    @State private var editingFaceControl = false
 
     private var selectedSubjects: [PortraitSubject] {
         guard let preview = model.portraitPreview else { return [] }
@@ -21,11 +22,18 @@ struct PortraitControls: View {
             }
 
             Group {
-                AdjustmentSlider(title: "Làm sáng da", key: PortraitControl.brighten.key, range: 0...100)
-                AdjustmentSlider(title: "Làm mịn da và giảm mụn", key: PortraitControl.smooth.key, range: 0...100)
-                    .help("Làm dịu chi tiết nhỏ và giảm đốm mụn cục bộ, giữ nét mắt và môi.")
-                AdjustmentSlider(title: "Thon mặt", key: PortraitControl.faceSlim.key, range: 0...100)
+                faceSlider("Làm trắng da", \.brighten)
+                faceSlider("Làm mịn da", \.smoothing)
+                faceSlider("Xóa mụn", \.blemishes)
+                    .help("Xử lý đốm nhỏ, bảo vệ mắt và môi. Mặc định đi theo Làm mịn da, bạn có thể chỉnh hai mức riêng.")
+                faceSlider("Thon mặt", \.slim)
             }.disabled(selectedSubjects.isEmpty)
+            if let face = model.edits.portraitFace, model.edits.faceRetouch.hasOwnSettings(for: face), !selectedSubjects.isEmpty {
+                Button("Dùng mức chung cho khuôn mặt này") {
+                    model.change("Dùng mức chỉnh chân dung chung") { $0.useCommonFaceRetouch(for: face) }
+                }
+                .font(.system(size: 10)).foregroundStyle(Theme.accent)
+            }
             AdjustmentSlider(title: "Thon eo", key: PortraitControl.waistSlim.key, range: 0...100)
                 .disabled(model.edits.portraitWaist == nil && !selectedSubjects.contains { $0.waist != nil })
             waistControls
@@ -56,15 +64,42 @@ struct PortraitControls: View {
         }
     }
 
+    private func faceSlider(_ title: String, _ key: WritableKeyPath<PortraitRetouch.Settings, Double>) -> some View {
+        let retouch = model.edits.faceRetouch
+        let face = model.edits.portraitFace
+        let value = min(max(retouch.settings(for: face)[keyPath: key], 0), 100)
+        let hasDifferentValues = face == nil && selectedSubjects.contains { retouch.settings(for: $0.face)[keyPath: key] != value }
+        return VStack(spacing: 5) {
+            HStack {
+                Text(title).foregroundStyle(Color.white.opacity(0.62))
+                Spacer()
+                if hasDifferentValues {
+                    Text("Có mức riêng").foregroundStyle(Theme.muted)
+                } else {
+                    Text(value.formatted(.number.precision(.fractionLength(0))))
+                        .monospacedDigit().foregroundStyle(value == 0 ? Theme.muted : Theme.accent)
+                }
+            }.font(.system(size: 10))
+            Slider(value: Binding(get: { value }, set: { value in
+                model.updateFaceRetouch(key, value, label: editingFaceControl ? nil : title)
+            }), in: 0...100, step: 1, onEditingChanged: { editing in
+                editingFaceControl = editing
+                if !editing { model.endGesture(title) }
+            })
+            .controlSize(.mini).accessibilityLabel(title)
+        }
+    }
+
     private func facePicker(_ preview: PortraitPreview) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack {
                 Text("\(preview.subjects.count) khuôn mặt").font(.system(size: 11))
                 Spacer()
-                Button("Tất cả") { model.selectPortrait(nil) }
+                Button("Tất cả khuôn mặt") { model.selectPortrait(nil) }
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(model.edits.portraitFace == nil ? Theme.accent : Theme.muted)
                     .accessibilityAddTraits(model.edits.portraitFace == nil ? .isSelected : [])
+                    .help("Mỗi thanh bạn chỉnh sẽ áp dụng cho mọi khuôn mặt trong ảnh.")
             }
             ScrollView(.horizontal) {
                 HStack(spacing: 7) {

@@ -17,19 +17,54 @@ public struct Adjustments: Codable, Equatable, Sendable {
     public var cropX: Double = 0.5
     public var cropY: Double = 0.5
     public var portraitFace: CGRect?
+    private var portraitRetouch: PortraitRetouch?
     public var portraitWaist: PortraitWaist?
     public var localMasks: [LocalMask]?
     public var flipHorizontal: Bool?
     public var flipVertical: Bool?
     public init() {}
-    public var hasPortraitEdits: Bool { PortraitControl.allCases.contains { self[$0.key] > 0 } }
+    public var hasPortraitEdits: Bool {
+        faceRetouch.isEdited || self[PortraitControl.waistSlim.key] > 0 ||
+        self[PortraitControl.armSlim.key] > 0 || self[PortraitControl.legSlim.key] > 0
+    }
     var needsPortraitAnalysis: Bool {
-        self[PortraitControl.brighten.key] > 0 || self[PortraitControl.smooth.key] > 0 ||
-        self[PortraitControl.faceSlim.key] > 0 || self[PortraitControl.armSlim.key] > 0 || self[PortraitControl.legSlim.key] > 0 ||
+        faceRetouch.isEdited || self[PortraitControl.armSlim.key] > 0 || self[PortraitControl.legSlim.key] > 0 ||
         (self[PortraitControl.waistSlim.key] > 0 && portraitWaist == nil)
+    }
+    public var faceRetouch: PortraitRetouch {
+        if let portraitRetouch { return portraitRetouch }
+        var legacy = PortraitRetouch.Settings()
+        legacy.brighten = self[PortraitControl.brighten.key]
+        legacy.smoothing = self[PortraitControl.smooth.key]
+        legacy.slim = self[PortraitControl.faceSlim.key]
+        var retouch = PortraitRetouch()
+        retouch.set(legacy, for: portraitFace)
+        return retouch
+    }
+    public mutating func selectPortraitFace(_ face: CGRect?) {
+        if portraitRetouch == nil, faceRetouch.isEdited { storeFaceRetouch(faceRetouch) }
+        portraitFace = face
+        portraitWaist = nil
+    }
+    public mutating func updateFaceRetouch(for face: CGRect?, _ update: (inout PortraitRetouch.Settings) -> Void) {
+        var retouch = faceRetouch
+        retouch.update(for: face, update)
+        storeFaceRetouch(retouch)
+    }
+    public mutating func useCommonFaceRetouch(for face: CGRect) {
+        var retouch = faceRetouch
+        retouch.useCommonSettings(for: face)
+        storeFaceRetouch(retouch)
+    }
+    private mutating func storeFaceRetouch(_ retouch: PortraitRetouch) {
+        portraitRetouch = retouch == PortraitRetouch() ? nil : retouch
+        values.removeValue(forKey: PortraitControl.brighten.key)
+        values.removeValue(forKey: PortraitControl.smooth.key)
+        values.removeValue(forKey: PortraitControl.faceSlim.key)
     }
     public mutating func keepPortrait(from source: Adjustments) {
         portraitFace = source.portraitFace
+        portraitRetouch = source.portraitRetouch
         portraitWaist = source.portraitWaist
         for control in PortraitControl.allCases { values[control.key] = source.values[control.key] }
     }
@@ -38,7 +73,7 @@ public struct Adjustments: Codable, Equatable, Sendable {
         set { values[key] = newValue }
     }
     public var isEdited: Bool {
-        (trongTreo3Calibration ?? 0) > 0 || values.contains { !PresetParameters.isNeutral($0.key, value: $0.value, in: self) } ||
+        hasPortraitEdits || (trongTreo3Calibration ?? 0) > 0 || values.contains { !PresetParameters.isNeutral($0.key, value: $0.value, in: self) } ||
         !curves.isEmpty || monochrome || rotation % 4 != 0 || cropAspect != 0 || cropScale != 1 ||
         flipHorizontal == true || flipVertical == true || (localMasks?.contains(where: \.isActive) ?? false)
     }

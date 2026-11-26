@@ -187,9 +187,18 @@ private struct MaskPreviewRequest: Sendable {
 
     func selectPortrait(_ face: CGRect?) {
         guard edits.portraitFace != face else { return }
-        change("Chọn người chỉnh chân dung") {
-            $0.portraitFace = face
-            $0.portraitWaist = nil
+        change("Chọn người chỉnh chân dung") { $0.selectPortraitFace(face) }
+    }
+
+    func updateFaceRetouch(_ key: WritableKeyPath<PortraitRetouch.Settings, Double>, _ value: Double, label: String? = nil) {
+        let face = edits.portraitFace
+        if let label {
+            change(label) { $0.updateFaceRetouch(for: face) { $0[keyPath: key] = value } }
+        } else {
+            beginGesture()
+            edits.updateFaceRetouch(for: face) { $0[keyPath: key] = value }
+            commitCurrent()
+            scheduleRender()
         }
     }
 

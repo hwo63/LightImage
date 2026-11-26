@@ -72,7 +72,7 @@ final class PortraitTests: XCTestCase {
         XCTAssertEqual(legs.extent, extent)
     }
 
-    func testSmoothingReducesAnIsolatedBlemishAndProtectsTheLips() throws {
+    func testBlemishRemovalWorksWithoutSmoothingAndProtectsTheLips() throws {
         let engine = ImageEngine()
         let extent = CGRect(x: 0, y: 0, width: 240, height: 200)
         let skin = CIImage(color: CIColor(red: 0.63, green: 0.41, blue: 0.33)).cropped(to: extent)
@@ -82,12 +82,90 @@ final class PortraitTests: XCTestCase {
         let subject = PortraitSubject(face: CGRect(x: 0.2, y: 0.15, width: 0.60, height: 0.7), eyes: [],
                                       lips: CGRect(x: 0.45, y: 0.32, width: 0.1, height: 0.05), waist: nil)
         var edits = Adjustments()
-        edits[PortraitControl.smooth.key] = 100
+        edits.updateFaceRetouch(for: nil) { $0.blemishes = 100 }
+        XCTAssertEqual(edits.faceRetouch.settings(for: nil).smoothing, 0)
         let result = try engine.render(source, adjustments: edits, portrait: PortraitAnalysis(subjects: [subject]))
         XCTAssertGreaterThan(Int(pixel(result, x: 95, y: 109, engine: engine)[1]),
                              Int(pixel(source, x: 95, y: 109, engine: engine)[1]) + 35)
         XCTAssertEqual(pixel(result, x: 120, y: 69, engine: engine), pixel(source, x: 120, y: 69, engine: engine))
         XCTAssertEqual(pixel(result, x: 34, y: 109, engine: engine), pixel(source, x: 34, y: 109, engine: engine))
+    }
+
+    func testSelectingAnotherFacePreservesLegacyEditAndAppliesIndependentSettings() throws {
+        let engine = ImageEngine()
+        let extent = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let source = CIImage(color: CIColor(red: 0.63, green: 0.41, blue: 0.33)).cropped(to: extent)
+        let left = PortraitSubject(face: CGRect(x: 0.08, y: 0.20, width: 0.32, height: 0.63), eyes: [], lips: nil, waist: nil)
+        let right = PortraitSubject(face: CGRect(x: 0.62, y: 0.20, width: 0.32, height: 0.63), eyes: [], lips: nil, waist: nil)
+        let analysis = PortraitAnalysis(subjects: [left, right])
+        var edits = Adjustments()
+        edits.portraitFace = left.face
+        edits[PortraitControl.brighten.key] = 80
+        edits[PortraitControl.smooth.key] = 20
+        let legacy = try JSONDecoder().decode(Adjustments.self, from: JSONEncoder().encode(edits))
+        let original = try engine.render(source, adjustments: legacy, portrait: analysis)
+
+        edits = legacy
+        edits.selectPortraitFace(right.face)
+        let selected = try engine.render(source, adjustments: edits, portrait: analysis)
+        XCTAssertEqual(pixel(selected, x: 48, y: 50, engine: engine), pixel(original, x: 48, y: 50, engine: engine))
+        XCTAssertEqual(edits.faceRetouch.settings(for: left.face).blemishes, 20)
+        XCTAssertEqual(edits.faceRetouch.settings(for: right.face).brighten, 0)
+
+        edits.updateFaceRetouch(for: right.face) {
+            $0.brighten = 30
+            $0.smoothing = 60
+            $0.blemishes = 0
+        }
+        edits.selectPortraitFace(nil)
+        let saved = try JSONDecoder().decode(Adjustments.self, from: JSONEncoder().encode(edits))
+        XCTAssertTrue(saved.isEdited)
+        XCTAssertEqual(saved.faceRetouch.settings(for: nil).brighten, 0)
+        XCTAssertEqual(saved.faceRetouch.settings(for: left.face).brighten, 80)
+        XCTAssertEqual(saved.faceRetouch.settings(for: right.face).smoothing, 60)
+        XCTAssertEqual(saved.faceRetouch.settings(for: right.face).blemishes, 0)
+        XCTAssertEqual(ColorTreatment.settings(from: saved), Adjustments())
+        let rendered = try engine.render(source, adjustments: saved, portrait: analysis)
+        XCTAssertEqual(pixel(rendered, x: 48, y: 50, engine: engine), pixel(original, x: 48, y: 50, engine: engine))
+        XCTAssertGreaterThan(pixel(rendered, x: 156, y: 50, engine: engine)[0], pixel(source, x: 156, y: 50, engine: engine)[0])
+
+        edits.useCommonFaceRetouch(for: right.face)
+        XCTAssertEqual(edits.faceRetouch.settings(for: right.face), edits.faceRetouch.settings(for: nil))
+        XCTAssertEqual(edits.faceRetouch.settings(for: left.face).brighten, 80)
+    }
+
+    func testEditingAllFacesAppliesTheMovedControlToExistingAndNewFaceSettings() throws {
+        let left = CGRect(x: 0.05, y: 0.2, width: 0.22, height: 0.6)
+        let center = CGRect(x: 0.38, y: 0.2, width: 0.22, height: 0.6)
+        let right = CGRect(x: 0.7, y: 0.2, width: 0.22, height: 0.6)
+        var edits = Adjustments()
+        edits.updateFaceRetouch(for: left) {
+            $0.brighten = 80
+            $0.slim = 25
+        }
+        edits.updateFaceRetouch(for: right) {
+            $0.smoothing = 50
+            $0.blemishes = 0
+        }
+
+        edits.updateFaceRetouch(for: nil) { $0.brighten = 40 }
+        edits.updateFaceRetouch(for: nil) { $0.smoothing = 60 }
+        let saved = try JSONDecoder().decode(Adjustments.self, from: JSONEncoder().encode(edits))
+        for face in [left, center, right] {
+            XCTAssertEqual(saved.faceRetouch.settings(for: face).brighten, 40)
+            XCTAssertEqual(saved.faceRetouch.settings(for: face).smoothing, 60)
+        }
+        XCTAssertEqual(saved.faceRetouch.settings(for: left).slim, 25)
+        XCTAssertEqual(saved.faceRetouch.settings(for: left).blemishes, 60)
+        XCTAssertEqual(saved.faceRetouch.settings(for: right).blemishes, 0)
+
+        edits.updateFaceRetouch(for: nil) { $0.blemishes = 35 }
+        edits.updateFaceRetouch(for: nil) { $0.slim = 0 }
+        for face in [left, center, right] {
+            XCTAssertEqual(edits.faceRetouch.settings(for: face).blemishes, 35)
+            XCTAssertEqual(edits.faceRetouch.settings(for: face).slim, 0)
+            XCTAssertFalse(edits.faceRetouch.hasOwnSettings(for: face))
+        }
     }
 
     func testPortraitSettingsRoundTripAndDoNotChangeTheColorCube() throws {
@@ -117,10 +195,13 @@ final class PortraitTests: XCTestCase {
         XCTAssertGreaterThan(analysis.subjects.count, 1)
         let subject = try XCTUnwrap(analysis.subjects.first)
         var edits = Adjustments()
-        edits.portraitFace = subject.face
-        edits[PortraitControl.brighten.key] = 50
-        edits[PortraitControl.smooth.key] = 65
-        edits[PortraitControl.faceSlim.key] = 60
+        edits.selectPortraitFace(subject.face)
+        edits.updateFaceRetouch(for: subject.face) {
+            $0.brighten = 50
+            $0.smoothing = 65
+            $0.blemishes = 45
+            $0.slim = 60
+        }
         edits[PortraitControl.armSlim.key] = 45
         edits[PortraitControl.legSlim.key] = 40
         let output = try engine.cgImage(engine.render(source, adjustments: edits, portrait: analysis))

@@ -27,7 +27,7 @@ enum PortraitEffects {
             return unpremultiply(sample(image, samplerTransform(image, point))).rgb;
         }
         kernel vec4 skin(sampler source, sampler soft, vec4 face, vec4 eyeA, vec4 eyeB, vec4 lips,
-                        vec4 nose, float brighten, float smoothing, float spotRadius) {
+                        vec4 nose, float brighten, float smoothing, float blemishes, float spotRadius) {
             vec2 p = destCoord();
             vec4 color = unpremultiply(sample(source, samplerTransform(source, p)));
             vec3 blurred = skinSample(soft, p);
@@ -39,7 +39,7 @@ enum PortraitEffects {
             float edge = length(color.rgb - blurred);
             float blend = smoothing * 0.85 * skinMask * (1.0 - smoothstep(0.06, 0.24, edge));
             vec3 rgb = mix(color.rgb, blurred, blend);
-            if (smoothing > 0.0 && mask > 0.0) {
+            if (blemishes > 0.0 && mask > 0.0) {
                 vec2 x = vec2(spotRadius, 0.0);
                 vec2 y = vec2(0.0, spotRadius);
                 vec2 d = (x + y) * 0.7071;
@@ -54,7 +54,7 @@ enum PortraitEffects {
                 vec3 delta = color.rgb - surrounding;
                 float contrast = max(abs(dot(delta, lumaWeights)), (delta.r - delta.g) * 0.85);
                 float spot = smoothstep(0.035, 0.12, contrast) * (1.0 - smoothstep(0.045, 0.16, variation));
-                float repair = smoothing * mask * spot * exclusion(p, nose) * skinTone(surrounding);
+                float repair = blemishes * mask * spot * exclusion(p, nose) * skinTone(surrounding);
                 repair *= smoothstep(0.025, 0.16, dot(surrounding, lumaWeights));
                 rgb = mix(rgb, surrounding, repair);
             }
@@ -80,34 +80,29 @@ enum PortraitEffects {
         """)
 
     static func apply(_ source: CIImage, adjustments: Adjustments, analysis: PortraitAnalysis) throws -> CIImage {
-        let subjects = analysis.targets(adjustments.portraitFace)
         let extent = source.extent
-        func amount(_ control: PortraitControl) -> Double {
-            min(max(adjustments[control.key] / 100, 0), 1)
+        func bodyAmount(_ control: PortraitControl) -> Double {
+            amount(adjustments[control.key])
         }
         var image = source
-        let brighten = amount(.brighten), smoothing = amount(.smooth)
-        if brighten > 0 || smoothing > 0 {
-            for subject in subjects {
-                image = try retouch(image, subject: subject, brighten: brighten, smoothing: smoothing)
-            }
+        let faces = zip(analysis.subjects, adjustments.faceRetouch.settings(for: analysis.subjects))
+        for (subject, settings) in faces where settings.brighten > 0 || settings.smoothing > 0 || settings.blemishes > 0 {
+            image = try retouch(image, subject: subject, settings: settings)
         }
-        let slimFace = amount(.faceSlim)
-        if slimFace > 0 {
-            for subject in subjects {
-                let face = pixels(subject.face, in: extent)
-                let center = CGPoint(x: face.midX, y: face.minY + face.height * 0.43)
-                var angle = 0.0
-                if subject.eyes.count == 2 {
-                    let eyes = subject.eyes.map { pixels($0, in: extent) }.sorted { $0.midX < $1.midX }
-                    angle = atan2(eyes[1].midY - eyes[0].midY, eyes[1].midX - eyes[0].midX)
-                }
-                image = try slim(image, center: center, radiusX: face.width * 0.78,
-                                 radiusY: face.height * 0.58, angle: angle, strength: slimFace * 0.44, jaw: true)
+        for (subject, settings) in faces where settings.slim > 0 {
+            let face = pixels(subject.face, in: extent)
+            let center = CGPoint(x: face.midX, y: face.minY + face.height * 0.43)
+            var angle = 0.0
+            if subject.eyes.count == 2 {
+                let eyes = subject.eyes.map { pixels($0, in: extent) }.sorted { $0.midX < $1.midX }
+                angle = atan2(eyes[1].midY - eyes[0].midY, eyes[1].midX - eyes[0].midX)
             }
+            image = try slim(image, center: center, radiusX: face.width * 0.78,
+                             radiusY: face.height * 0.58, angle: angle, strength: amount(settings.slim) * 0.44, jaw: true)
         }
 
-        let slimWaist = amount(.waistSlim)
+        let subjects = analysis.targets(adjustments.portraitFace)
+        let slimWaist = bodyAmount(.waistSlim)
         if slimWaist > 0 {
             let waists = adjustments.portraitWaist.map { [$0] } ?? subjects.compactMap(\.waist)
             for waist in waists {
@@ -118,7 +113,7 @@ enum PortraitEffects {
                                  angle: waist.angle, strength: slimWaist * 0.62, jaw: false)
             }
         }
-        let slimArms = amount(.armSlim), slimLegs = amount(.legSlim)
+        let slimArms = bodyAmount(.armSlim), slimLegs = bodyAmount(.legSlim)
         for subject in subjects {
             let faceWidth = subject.face.width * extent.width
             if slimArms > 0 {
@@ -131,8 +126,9 @@ enum PortraitEffects {
         return image
     }
 
-    private static func retouch(_ image: CIImage, subject: PortraitSubject, brighten: Double,
-                                smoothing: Double) throws -> CIImage {
+    private static func amount(_ value: Double) -> Double { min(max(value / 100, 0), 1) }
+
+    private static func retouch(_ image: CIImage, subject: PortraitSubject, settings: PortraitRetouch.Settings) throws -> CIImage {
         let face = pixels(subject.face, in: image.extent)
         let region = CGRect(x: face.minX + face.width * 0.035, y: face.minY + face.height * 0.04,
                             width: face.width * 0.93, height: face.height * 0.91)
@@ -143,12 +139,12 @@ enum PortraitEffects {
             let bounds = pixels(rect, in: image.extent).insetBy(dx: -face.width * 0.05, dy: -face.height * 0.044)
             return ellipse(bounds)
         }
-        let soft = smoothing > 0 ? image.clampedToExtent().applyingFilter("CIGaussianBlur",
+        let soft = settings.smoothing > 0 ? image.clampedToExtent().applyingFilter("CIGaussianBlur",
                         parameters: [kCIInputRadiusKey: max(0.5, face.width * 0.028)]) : image
         let spotRadius = max(1.5, face.width * 0.022)
         let args: [Any] = [image.clampedToExtent(), soft, ellipse(region), protection(subject.eyes.first),
                            protection(subject.eyes.dropFirst().first), protection(subject.lips), protection(subject.nose),
-                           brighten, smoothing, spotRadius]
+                           amount(settings.brighten), amount(settings.smoothing), amount(settings.blemishes), spotRadius]
         guard let output = retouchKernel?.apply(extent: patch, roiCallback: { index, rect in
             index == 0 ? rect.insetBy(dx: -ceil(spotRadius) - 1, dy: -ceil(spotRadius) - 1) : rect
         }, arguments: args) else {
