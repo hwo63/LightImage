@@ -2,31 +2,83 @@ import AppKit
 import OSLog
 
 @MainActor final class AppUpdater: ObservableObject {
+    struct CheckResult {
+        let detail: String
+        var offersReleasePage = false
+    }
+
     @Published private(set) var readyVersion: String?
+    @Published private(set) var isChecking = false
+    @Published private(set) var checkResult: CheckResult?
 
     private let logger = Logger(subsystem: "vn.hwo.LightImage", category: "updates")
+    private let client: UpdateClient?
+    private var automaticChecks: Task<Void, Never>?
     private var checkTask: Task<Void, Never>?
+    private var reportCheck = false
     private var update: DownloadedUpdate?
     private(set) var restartRequested = false
 
+    init(client: UpdateClient? = UpdateClient()) { self.client = client }
+
     func start() {
-        guard checkTask == nil, let client = UpdateClient() else { return }
-        checkTask = Task {
+        guard automaticChecks == nil, client != nil else { return }
+        automaticChecks = Task { [weak self] in
             while !Task.isCancelled {
-                do {
-                    if let next = try await client.downloadLatest(newerThan: update?.version) {
-                        if Task.isCancelled || restartRequested {
-                            try? FileManager.default.removeItem(at: next.directory)
-                            return
-                        }
-                        if let update { try? FileManager.default.removeItem(at: update.directory) }
-                        update = next
-                        readyVersion = next.version.description
-                    }
-                } catch {
-                    logger.notice("Không thể tải bản cập nhật: \(String(describing: error), privacy: .public)")
-                }
+                self?.check()
+                await self?.checkTask?.value
                 try? await Task.sleep(for: .seconds(6 * 60 * 60))
+            }
+        }
+    }
+
+    func checkManually() {
+        guard !restartRequested else { return }
+        guard client != nil else {
+            checkResult = CheckResult(detail: "Bản cài này thiếu thông tin xác minh cập nhật. Bạn có thể tải bộ cài chính thức từ GitHub.",
+                                      offersReleasePage: true)
+            return
+        }
+        reportCheck = true
+        check()
+    }
+
+    func dismissCheckResult() { checkResult = nil }
+
+    private func check() {
+        guard checkTask == nil, !restartRequested, let client else { return }
+        isChecking = true
+        checkTask = Task {
+            defer {
+                reportCheck = false
+                checkTask = nil
+                isChecking = false
+            }
+            do {
+                let next = try await client.downloadLatest(newerThan: update?.version)
+                guard !Task.isCancelled, !restartRequested else {
+                    if let next { try? FileManager.default.removeItem(at: next.directory) }
+                    return
+                }
+                if let next {
+                    if let update { try? FileManager.default.removeItem(at: update.directory) }
+                    update = next
+                    readyVersion = next.version.description
+                }
+                if reportCheck {
+                    if let readyVersion {
+                        checkResult = CheckResult(detail: "LightImage \(readyVersion) đã tải xong. Bấm Restart to Update ở góc dưới bên phải để cài đặt.")
+                    } else {
+                        checkResult = CheckResult(detail: "Bạn đang dùng bản LightImage mới nhất (\(client.installedVersion)).")
+                    }
+                }
+            } catch {
+                guard !Task.isCancelled, !restartRequested else { return }
+                logger.notice("Không thể tải bản cập nhật: \(String(describing: error), privacy: .public)")
+                if reportCheck {
+                    checkResult = CheckResult(detail: "Không thể kiểm tra hoặc tải bản cập nhật. \(error.localizedDescription)",
+                                              offersReleasePage: true)
+                }
             }
         }
     }
@@ -66,7 +118,10 @@ import OSLog
     }
 
     func cancelBackgroundCheck() {
+        automaticChecks?.cancel()
         checkTask?.cancel()
         if let update { try? FileManager.default.removeItem(at: update.directory) }
+        update = nil
+        readyVersion = nil
     }
 }

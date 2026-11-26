@@ -32,18 +32,6 @@ struct DownloadedUpdate {
 }
 
 struct UpdateClient {
-    private struct Release: Decodable {
-        let tag_name: String
-        let draft: Bool
-        let prerelease: Bool
-        let assets: [Asset]
-
-        struct Asset: Decodable {
-            let name: String
-            let size: Int
-        }
-    }
-
     private struct Manifest: Decodable {
         let version: String
         let archive: String
@@ -51,17 +39,29 @@ struct UpdateClient {
         let sha256: String
     }
 
-    private enum Failure: Error {
-        case invalidResponse, invalidManifest, invalidArchive, invalidBundle, toolExit(Int32)
+    private enum Failure: LocalizedError {
+        case invalidResponse, invalidRelease, missingPackage, invalidManifest, invalidArchive, invalidBundle, toolExit(Int32)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidResponse: return "GitHub chưa trả về dữ liệu cập nhật hợp lệ. Hãy thử lại sau."
+            case .invalidRelease: return "Không đọc được phiên bản mới nhất trên GitHub. Hãy thử lại sau."
+            case .missingPackage: return "Bản phát hành mới chưa có gói cập nhật đã ký cho máy Mac này."
+            case .invalidManifest: return "Không xác minh được chữ ký hoặc thông tin của gói cập nhật."
+            case .invalidArchive: return "Tệp cập nhật tải về bị thiếu hoặc sai mã kiểm tra."
+            case .invalidBundle, .toolExit: return "Không xác minh được ứng dụng trong gói cập nhật."
+            }
+        }
     }
 
     private static let repository = "hwo63/LightImage"
-    private static let latest = URL(string: "https://api.github.com/repos/\(repository)/releases/latest")!
+    static let latest = URL(string: "https://github.com/\(repository)/releases/latest")!
+    private static let tagRoot = "/\(repository)/releases/tag/"
     private static let downloadRoot = URL(string: "https://github.com/\(repository)/releases/download/")!
     private static let maximumArchiveBytes = 128 * 1024 * 1024
 
     private let session: URLSession
-    private let installedVersion: UpdateVersion
+    let installedVersion: UpdateVersion
     private let publicKey: Curve25519.Signing.PublicKey
     private let bundleID: String
 
@@ -90,30 +90,26 @@ struct UpdateClient {
 
     func downloadLatest(newerThan stagedVersion: UpdateVersion? = nil) async throws -> DownloadedUpdate? {
         #if arch(arm64)
-        let manifestName = "LightImage-update-arm64"
+        let architecture = "arm64"
         #elseif arch(x86_64)
-        let manifestName = "LightImage-update-x86_64"
+        let architecture = "x86_64"
         #endif
 
+        // Resolve the public redirect without using the rate-limited anonymous REST API.
         var request = URLRequest(url: Self.latest, cachePolicy: .reloadIgnoringLocalCacheData)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        let (releaseBytes, response) = try await session.data(for: request)
-        if (response as? HTTPURLResponse)?.statusCode == 404 { return nil }
+        request.httpMethod = "HEAD"
+        let (_, response) = try await session.data(for: request)
         try Self.validate(response)
-        let release = try JSONDecoder().decode(Release.self, from: releaseBytes)
-        guard !release.draft, !release.prerelease, release.tag_name.hasPrefix("v"),
-              let version = UpdateVersion(String(release.tag_name.dropFirst())),
-              version > max(installedVersion, stagedVersion ?? installedVersion) else { return nil }
+        guard let url = response.url, url.host == Self.latest.host,
+              url.path == Self.tagRoot + url.lastPathComponent, url.lastPathComponent.hasPrefix("v"),
+              let version = UpdateVersion(String(url.lastPathComponent.dropFirst())) else { throw Failure.invalidRelease }
+        guard version > max(installedVersion, stagedVersion ?? installedVersion) else { return nil }
 
-        let jsonName = "\(manifestName).json"
-        let signatureName = "\(manifestName).sig"
-        guard release.assets.contains(where: { $0.name == jsonName && (1...8192).contains($0.size) }),
-              release.assets.contains(where: { $0.name == signatureName && (1...128).contains($0.size) })
-        else { return nil }
-
-        let releaseURL = Self.downloadRoot.appendingPathComponent(release.tag_name, isDirectory: true)
-        async let json = assetBytes(jsonName, in: releaseURL, limit: 8192)
-        async let signature = assetBytes(signatureName, in: releaseURL, limit: 128)
+        // Use a specific tag for both assets so publication of a newer release cannot mix them.
+        let releaseURL = Self.downloadRoot.appendingPathComponent("v\(version)", isDirectory: true)
+        let manifestName = "LightImage-update-\(architecture)"
+        async let json = assetBytes("\(manifestName).json", in: releaseURL, limit: 8192)
+        async let signature = assetBytes("\(manifestName).sig", in: releaseURL, limit: 128)
         let (manifestData, signatureData) = try await (json, signature)
         guard let signatureText = String(data: signatureData, encoding: .utf8),
               let detachedSignature = Data(base64Encoded: signatureText.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -121,16 +117,18 @@ struct UpdateClient {
             throw Failure.invalidManifest
         }
 
-        let manifest = try JSONDecoder().decode(Manifest.self, from: manifestData)
-        guard manifest.version == version.description,
+        guard let manifest = try? JSONDecoder().decode(Manifest.self, from: manifestData),
+              manifest.version == version.description,
+              manifest.archive.hasPrefix("LightImage-\(version)-"),
+              manifest.archive.hasSuffix("-macOS-\(architecture).app.zip"),
               manifest.archive.range(of: #"\ALightImage-[A-Za-z0-9.\-]+\.app\.zip\z"#, options: .regularExpression) != nil,
-              (1...Self.maximumArchiveBytes).contains(manifest.size),
-              release.assets.contains(where: { $0.name == manifest.archive && $0.size == manifest.size }) else {
+              (1...Self.maximumArchiveBytes).contains(manifest.size) else {
             throw Failure.invalidManifest
         }
 
         let (archive, downloadResponse) = try await session.download(from: releaseURL.appendingPathComponent(manifest.archive))
         defer { try? FileManager.default.removeItem(at: archive) }
+        if (downloadResponse as? HTTPURLResponse)?.statusCode == 404 { throw Failure.missingPackage }
         try Self.validate(downloadResponse)
         let archiveSize = try archive.resourceValues(forKeys: [.fileSizeKey]).fileSize
         guard archiveSize == manifest.size else { throw Failure.invalidArchive }
@@ -160,9 +158,15 @@ struct UpdateClient {
     }
 
     private func assetBytes(_ name: String, in root: URL, limit: Int) async throws -> Data {
-        let (data, response) = try await session.data(from: root.appendingPathComponent(name))
+        let (bytes, response) = try await session.bytes(from: root.appendingPathComponent(name))
+        if (response as? HTTPURLResponse)?.statusCode == 404 { throw Failure.missingPackage }
         try Self.validate(response)
-        guard !data.isEmpty, data.count <= limit else { throw Failure.invalidResponse }
+        var data = Data()
+        for try await byte in bytes {
+            guard data.count < limit else { throw Failure.invalidManifest }
+            data.append(byte)
+        }
+        guard !data.isEmpty else { throw Failure.invalidManifest }
         return data
     }
 

@@ -41,6 +41,15 @@ struct ContentView: View {
             Button("Đóng") { model.error = nil }
             if model.selected != nil { Button("Chọn lại ảnh gốc…") { model.error = nil; model.relink() } }
         } message: { Text(model.error ?? "") }
+        .alert("Cập nhật LightImage", isPresented: Binding(get: { updater.checkResult != nil },
+                set: { if !$0 { updater.dismissCheckResult() } }), presenting: updater.checkResult) { result in
+            if result.offersReleasePage {
+                Button("Mở GitHub Releases") { NSWorkspace.shared.open(UpdateClient.latest) }
+            }
+            Button("Đóng", role: .cancel) { updater.dismissCheckResult() }
+        } message: { result in
+            Text(result.detail)
+        }
         .sheet(isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             VStack(alignment: .leading, spacing: 20) {
                 Label("Thông tin từ LightImage", systemImage: "info.circle").font(.title3.weight(.semibold))
@@ -85,6 +94,10 @@ struct ContentView: View {
             Text(model.status).lineLimit(1)
             Spacer()
             if model.isRendering || model.isExporting || model.isImporting { ProgressView().controlSize(.mini) }
+            if updater.isChecking {
+                ProgressView().controlSize(.mini)
+                Text("Đang kiểm tra cập nhật…")
+            }
             Text(model.saved ? "Đã lưu trên máy" : "Đang lưu…")
             Text("·").padding(.horizontal, 5)
             Text(LightImageVersion.displayName).foregroundStyle(Theme.muted)

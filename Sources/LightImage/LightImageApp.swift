@@ -77,6 +77,7 @@ enum LightImageVersion {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("Giới thiệu LightImage") { showAbout() }
+                Button("Kiểm tra cập nhật…") { delegate.updater.checkManually() }
             }
             CommandGroup(replacing: .newItem) {
                 Button("Nhập ảnh…") { model.importPhotos() }.keyboardShortcut("o")
