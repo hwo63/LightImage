@@ -47,11 +47,56 @@ final class PortraitTests: XCTestCase {
         XCTAssertEqual(pixel(source, x: 127, y: 135, engine: engine), pixel(output, x: 127, y: 135, engine: engine))
     }
 
+    func testArmAndLegControlsNarrowAcrossEachLimbIndependently() throws {
+        let engine = ImageEngine()
+        let extent = CGRect(x: 0, y: 0, width: 320, height: 240)
+        let arm = CIImage(color: .white).cropped(to: CGRect(x: 20, y: 125, width: 80, height: 20))
+        let leg = CIImage(color: .white).cropped(to: CGRect(x: 210, y: 30, width: 30, height: 105))
+        let source = arm.composited(over: leg.composited(over: CIImage(color: .black).cropped(to: extent)))
+        let subject = PortraitSubject(face: CGRect(x: 0.4, y: 0.7, width: 0.16, height: 0.2), eyes: [], lips: nil, waist: nil,
+            arms: [PortraitLimb(start: CGPoint(x: 20.0 / 320, y: 135.0 / 240), end: CGPoint(x: 100.0 / 320, y: 135.0 / 240))],
+            legs: [PortraitLimb(start: CGPoint(x: 225.0 / 320, y: 30.0 / 240), end: CGPoint(x: 225.0 / 320, y: 135.0 / 240))])
+        let analysis = PortraitAnalysis(subjects: [subject])
+        var edits = Adjustments()
+        edits[PortraitControl.armSlim.key] = 100
+        let arms = try engine.render(source, adjustments: edits, portrait: analysis)
+        XCTAssertLessThan(pixel(arms, x: 60, y: 143, engine: engine)[0], 30)
+        XCTAssertEqual(pixel(arms, x: 24, y: 143, engine: engine), pixel(source, x: 24, y: 143, engine: engine))
+        XCTAssertEqual(pixel(arms, x: 237, y: 82, engine: engine), pixel(source, x: 237, y: 82, engine: engine))
+
+        edits[PortraitControl.armSlim.key] = 0
+        edits[PortraitControl.legSlim.key] = 100
+        let legs = try engine.render(source, adjustments: edits, portrait: analysis)
+        XCTAssertLessThan(pixel(legs, x: 237, y: 82, engine: engine)[0], 30)
+        XCTAssertEqual(pixel(legs, x: 60, y: 143, engine: engine), pixel(source, x: 60, y: 143, engine: engine))
+        XCTAssertEqual(legs.extent, extent)
+    }
+
+    func testSmoothingReducesAnIsolatedBlemishAndProtectsTheLips() throws {
+        let engine = ImageEngine()
+        let extent = CGRect(x: 0, y: 0, width: 240, height: 200)
+        let skin = CIImage(color: CIColor(red: 0.63, green: 0.41, blue: 0.33)).cropped(to: extent)
+        let spot = CIImage(color: CIColor(red: 0.51, green: 0.14, blue: 0.16))
+        let source = spot.cropped(to: CGRect(x: 94, y: 108, width: 3, height: 3)).composited(over:
+            spot.cropped(to: CGRect(x: 119, y: 68, width: 3, height: 3)).composited(over: skin))
+        let subject = PortraitSubject(face: CGRect(x: 0.2, y: 0.15, width: 0.60, height: 0.7), eyes: [],
+                                      lips: CGRect(x: 0.45, y: 0.32, width: 0.1, height: 0.05), waist: nil)
+        var edits = Adjustments()
+        edits[PortraitControl.smooth.key] = 100
+        let result = try engine.render(source, adjustments: edits, portrait: PortraitAnalysis(subjects: [subject]))
+        XCTAssertGreaterThan(Int(pixel(result, x: 95, y: 109, engine: engine)[1]),
+                             Int(pixel(source, x: 95, y: 109, engine: engine)[1]) + 35)
+        XCTAssertEqual(pixel(result, x: 120, y: 69, engine: engine), pixel(source, x: 120, y: 69, engine: engine))
+        XCTAssertEqual(pixel(result, x: 34, y: 109, engine: engine), pixel(source, x: 34, y: 109, engine: engine))
+    }
+
     func testPortraitSettingsRoundTripAndDoNotChangeTheColorCube() throws {
         var edits = Adjustments()
         edits.portraitFace = CGRect(x: 0.2, y: 0.4, width: 0.15, height: 0.25)
         edits.portraitWaist = PortraitWaist(center: CGPoint(x: 0.3, y: 0.2), width: 0.2)
         edits[PortraitControl.faceSlim.key] = 45
+        edits[PortraitControl.armSlim.key] = 22
+        edits[PortraitControl.legSlim.key] = 38
         let decoded = try JSONDecoder().decode(Adjustments.self, from: JSONEncoder().encode(edits))
         XCTAssertEqual(decoded, edits)
         XCTAssertTrue(decoded.isEdited)
@@ -76,6 +121,8 @@ final class PortraitTests: XCTestCase {
         edits[PortraitControl.brighten.key] = 50
         edits[PortraitControl.smooth.key] = 65
         edits[PortraitControl.faceSlim.key] = 60
+        edits[PortraitControl.armSlim.key] = 45
+        edits[PortraitControl.legSlim.key] = 40
         let output = try engine.cgImage(engine.render(source, adjustments: edits, portrait: analysis))
         XCTAssertEqual(output.width, Int(source.extent.width))
         XCTAssertEqual(output.height, Int(source.extent.height))

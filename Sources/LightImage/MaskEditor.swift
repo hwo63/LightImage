@@ -162,7 +162,8 @@ struct MaskEditor: View {
                                     }
                                 }
                             } label: { Label("Thêm mặt nạ", systemImage: "plus") }
-                            .menuStyle(.borderlessButton).disabled(masks.count >= 16 || detecting != nil || model.maskPreview == nil)
+                            .menuStyle(.borderlessButton)
+                            .disabled(masks.count >= LocalMask.maximumCount || detecting != nil || model.maskPreview == nil)
                             Spacer()
                         }
                         if let detecting {
@@ -184,7 +185,7 @@ struct MaskEditor: View {
                                 HStack {
                                     Image(systemName: mask.enabled ? "circle.fill" : "circle")
                                         .font(.system(size: 7)).foregroundStyle(Theme.accent)
-                                    Text("\(index + 1). \(title(mask.kind))")
+                                    Text("\(index + 1). \(mask.purpose == .hair ? "Tóc" : title(mask.kind))")
                                     Spacer()
                                     if selection == mask.id { Image(systemName: "checkmark") }
                                 }
@@ -207,7 +208,8 @@ struct MaskEditor: View {
                         .foregroundStyle(erase ? .orange : .mint)
                         .help("Rê cọ để xem vùng sẽ thay đổi tại vị trí hiện tại.")
                 } else if let active {
-                    Text(instruction(active.kind)).lineLimit(1)
+                    Text(active.purpose == .hair ? "Tô lên tóc rồi dùng các thanh chỉnh màu bên phải." : instruction(active.kind))
+                        .lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 if active?.kind.supportsBrush == true {
@@ -223,7 +225,7 @@ struct MaskEditor: View {
         .background(MaskEditorKeys(spaceHeld: $spaceHeld, cancelBrushStroke: cancelBrushStroke,
                                    changeStrokeHistory: changeStrokeHistory)
             .frame(width: 0, height: 0))
-        .onAppear { selection = masks.first?.id }
+        .onAppear { selection = model.preferredMaskID ?? masks.first?.id }
         .onChange(of: masks.map(\.id)) { _, ids in
             if selection.map({ !ids.contains($0) }) ?? true { selection = ids.last }
         }
@@ -535,6 +537,7 @@ struct MaskEditor: View {
             }
             if mask.kind != .linear { slider(mask.kind.isAutomatic ? "Độ mềm mặt nạ" : "Độ mềm", mask, \.feather, 0...100) }
             slider(mask.kind.isAutomatic ? "Cường độ mặt nạ" : "Cường độ", mask, \.opacity, 0...100)
+            if mask.purpose == .hair { slider("Sắc màu tóc", mask, \.hueRotation, -180...180) }
             slider("Phơi sáng", mask, \.exposure, -3...3, step: 0.05)
             slider("Tương phản", mask, \.contrast, -100...100)
             slider("Độ bão hòa", mask, \.saturation, -100...100)
@@ -593,7 +596,7 @@ struct MaskEditor: View {
             do {
                 let data = try await model.detectMask(kind, for: photo)
                 guard !Task.isCancelled, model.selectedID == photo.id,
-                      model.selected?.path == photo.path, masks.count < 16 else { return }
+                      model.selected?.path == photo.path, masks.count < LocalMask.maximumCount else { return }
                 var mask = LocalMask(kind: kind)
                 mask.automaticPNG = data
                 mask.feather = 15

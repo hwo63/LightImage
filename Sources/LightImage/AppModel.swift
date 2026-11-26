@@ -74,6 +74,7 @@ private struct MaskPreviewRequest: Sendable {
     @Published var splitCompare = false
     @Published private(set) var maskPreview: NSImage?
     @Published private(set) var maskPreviewError: String?
+    private(set) var preferredMaskID: UUID?
     @Published var maskSheet = false {
         didSet {
             guard maskSheet != oldValue else { return }
@@ -82,6 +83,7 @@ private struct MaskPreviewRequest: Sendable {
                 generation = UUID()
                 isRendering = false
             } else {
+                preferredMaskID = nil
                 resetMaskPreview()
             }
             scheduleRender(immediate: true)
@@ -130,6 +132,10 @@ private struct MaskPreviewRequest: Sendable {
     var canUndo: Bool { !currentHistory.isEmpty }
     var canRedo: Bool { !(selectedID.flatMap { redoHistory[$0] } ?? []).isEmpty }
     var activePreset: PhotoPreset? { presets.first { $0.id == selectedPreset } }
+    var hairMask: LocalMask? { edits.localMasks?.first { $0.purpose == .hair } }
+    var canEditHair: Bool {
+        selectedID != nil && (hairMask != nil || (edits.localMasks?.count ?? 0) < LocalMask.maximumCount)
+    }
 
     init(dataDirectory: URL? = nil) {
         if let dataDirectory {
@@ -192,6 +198,20 @@ private struct MaskPreviewRequest: Sendable {
             $0.portraitWaist = waist
         }
     }
+
+    func editHair() {
+        guard canEditHair else { return }
+        if let hairMask {
+            preferredMaskID = hairMask.id
+        } else {
+            var mask = LocalMask(kind: .brush)
+            mask.purpose = .hair
+            change("Thêm mặt nạ tóc") { $0.localMasks = ($0.localMasks ?? []) + [mask] }
+            preferredMaskID = mask.id
+        }
+        maskSheet = true
+    }
+
     func moveSelection(_ delta: Int) {
         guard !photos.isEmpty else { return }
         let index = photos.firstIndex { $0.id == selectedID } ?? 0

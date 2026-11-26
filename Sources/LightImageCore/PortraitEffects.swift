@@ -5,6 +5,8 @@ public enum PortraitControl: String, CaseIterable {
     case smooth = "LightImageSkinSmooth"
     case faceSlim = "LightImageFaceSlim"
     case waistSlim = "LightImageWaistSlim"
+    case armSlim = "LightImageArmSlim"
+    case legSlim = "LightImageLegSlim"
 
     public var key: String { rawValue }
 }
@@ -12,26 +14,51 @@ public enum PortraitControl: String, CaseIterable {
 enum PortraitEffects {
     // The mask follows the face ellipse and falls off at the boundary. Eyes,
     // eyebrows and lips are subtracted using landmark boxes.
-    private static let retouchKernel = CIColorKernel(source: """
+    private static let retouchKernel = CIKernel(source: """
         float exclusion(vec2 p, vec4 region) {
             vec2 d = (p - region.xy) / max(region.zw, vec2(0.01));
             return smoothstep(0.65, 1.0, length(d));
         }
-        kernel vec4 skin(__sample source, __sample soft, vec4 face,
-                        vec4 eyeA, vec4 eyeB, vec4 lips, float brighten, float smoothing) {
+        float skinTone(vec3 rgb) {
+            return smoothstep(-0.08, 0.036, rgb.r - rgb.b)
+                 * smoothstep(-0.045, 0.020, rgb.r - rgb.g);
+        }
+        vec3 skinSample(sampler image, vec2 point) {
+            return unpremultiply(sample(image, samplerTransform(image, point))).rgb;
+        }
+        kernel vec4 skin(sampler source, sampler soft, vec4 face, vec4 eyeA, vec4 eyeB, vec4 lips,
+                        vec4 nose, float brighten, float smoothing, float spotRadius) {
             vec2 p = destCoord();
-            vec4 color = unpremultiply(source);
-            vec3 blurred = unpremultiply(soft).rgb;
+            vec4 color = unpremultiply(sample(source, samplerTransform(source, p)));
+            vec3 blurred = skinSample(soft, p);
             float mask = 1.0 - smoothstep(0.67, 1.0, length((p - face.xy) / face.zw));
             mask *= exclusion(p, eyeA) * exclusion(p, eyeB) * exclusion(p, lips);
-            float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-            float skinTone = smoothstep(-0.08, 0.036, color.r - color.b)
-                           * smoothstep(-0.045, 0.020, color.r - color.g);
-            mask *= skinTone * smoothstep(0.025, 0.16, luma);
+            vec3 lumaWeights = vec3(0.2126, 0.7152, 0.0722);
+            float luma = dot(color.rgb, lumaWeights);
+            float skinMask = mask * skinTone(color.rgb) * smoothstep(0.025, 0.16, luma);
             float edge = length(color.rgb - blurred);
-            float blend = smoothing * mask * (1.0 - smoothstep(0.06, 0.24, edge));
+            float blend = smoothing * 0.85 * skinMask * (1.0 - smoothstep(0.06, 0.24, edge));
             vec3 rgb = mix(color.rgb, blurred, blend);
-            float lift = 0.50 * brighten * mask * luma * (1.0 - luma);
+            if (smoothing > 0.0 && mask > 0.0) {
+                vec2 x = vec2(spotRadius, 0.0);
+                vec2 y = vec2(0.0, spotRadius);
+                vec2 d = (x + y) * 0.7071;
+                vec2 e = (x - y) * 0.7071;
+                vec3 left = skinSample(source, p - x), right = skinSample(source, p + x);
+                vec3 lower = skinSample(source, p - y), upper = skinSample(source, p + y);
+                vec3 diagA = skinSample(source, p - d), diagB = skinSample(source, p + d);
+                vec3 diagC = skinSample(source, p - e), diagD = skinSample(source, p + e);
+                vec3 surrounding = (left + right + lower + upper + diagA + diagB + diagC + diagD) / 8.0;
+                float variation = max(max(length(left - right), length(lower - upper)),
+                                      max(length(diagA - diagB), length(diagC - diagD)));
+                vec3 delta = color.rgb - surrounding;
+                float contrast = max(abs(dot(delta, lumaWeights)), (delta.r - delta.g) * 0.85);
+                float spot = smoothstep(0.035, 0.12, contrast) * (1.0 - smoothstep(0.045, 0.16, variation));
+                float repair = smoothing * mask * spot * exclusion(p, nose) * skinTone(surrounding);
+                repair *= smoothstep(0.025, 0.16, dot(surrounding, lumaWeights));
+                rgb = mix(rgb, surrounding, repair);
+            }
+            float lift = 0.50 * brighten * skinMask * luma * (1.0 - luma);
             rgb += (vec3(1.0) - rgb) * (lift / max(0.12, 1.0 - luma));
             return premultiply(vec4(rgb, color.a));
         }
@@ -91,6 +118,16 @@ enum PortraitEffects {
                                  angle: waist.angle, strength: slimWaist * 0.62, jaw: false)
             }
         }
+        let slimArms = amount(.armSlim), slimLegs = amount(.legSlim)
+        for subject in subjects {
+            let faceWidth = subject.face.width * extent.width
+            if slimArms > 0 {
+                image = try slimLimbs(image, subject.arms, radius: faceWidth * 0.55, strength: slimArms)
+            }
+            if slimLegs > 0 {
+                image = try slimLimbs(image, subject.legs, radius: faceWidth * 0.75, strength: slimLegs)
+            }
+        }
         return image
     }
 
@@ -108,12 +145,32 @@ enum PortraitEffects {
         }
         let soft = smoothing > 0 ? image.clampedToExtent().applyingFilter("CIGaussianBlur",
                         parameters: [kCIInputRadiusKey: max(0.5, face.width * 0.028)]) : image
-        let args: [Any] = [image, soft, ellipse(region), protection(subject.eyes.first),
-                           protection(subject.eyes.dropFirst().first), protection(subject.lips), brighten, smoothing * 0.85]
-        guard let output = retouchKernel?.apply(extent: patch, arguments: args) else {
+        let spotRadius = max(1.5, face.width * 0.022)
+        let args: [Any] = [image.clampedToExtent(), soft, ellipse(region), protection(subject.eyes.first),
+                           protection(subject.eyes.dropFirst().first), protection(subject.lips), protection(subject.nose),
+                           brighten, smoothing, spotRadius]
+        guard let output = retouchKernel?.apply(extent: patch, roiCallback: { index, rect in
+            index == 0 ? rect.insetBy(dx: -ceil(spotRadius) - 1, dy: -ceil(spotRadius) - 1) : rect
+        }, arguments: args) else {
             throw LightImageError.portraitFailed
         }
         return replace(image, with: output)
+    }
+
+    private static func slimLimbs(_ source: CIImage, _ limbs: [PortraitLimb], radius: Double,
+                                  strength: Double) throws -> CIImage {
+        let extent = source.extent
+        var image = source
+        for limb in limbs {
+            let dx = (limb.end.x - limb.start.x) * extent.width
+            let dy = (limb.end.y - limb.start.y) * extent.height
+            let length = hypot(dx, dy)
+            let center = CGPoint(x: extent.minX + (limb.start.x + limb.end.x) / 2 * extent.width,
+                                 y: extent.minY + (limb.start.y + limb.end.y) / 2 * extent.height)
+            image = try slim(image, center: center, radiusX: min(radius, length * 0.5), radiusY: length * 0.49,
+                             angle: atan2(-dx, dy), strength: strength * 0.62, jaw: false)
+        }
+        return image
     }
 
     private static func slim(_ image: CIImage, center: CGPoint, radiusX: Double, radiusY: Double,

@@ -1,6 +1,8 @@
 import CoreImage
 
 public struct LocalMask: Codable, Equatable, Identifiable, Sendable {
+    public static let maximumCount = 16
+
     public enum Kind: String, CaseIterable, Codable, Sendable {
         case sky, subject, background, linear, radial, brush
 
@@ -11,8 +13,13 @@ public struct LocalMask: Codable, Equatable, Identifiable, Sendable {
         public var supportsBrush: Bool { self == .brush || isAutomatic }
     }
 
+    public enum Purpose: String, Codable, Sendable {
+        case hair
+    }
+
     public var id = UUID()
     public var kind: Kind
+    public var purpose: Purpose?
     public var start = CGPoint(x: 0.5, y: 0.65)
     public var end = CGPoint(x: 0.5, y: 0.40)
     public var strokes: [BrushStroke] = []
@@ -24,6 +31,7 @@ public struct LocalMask: Codable, Equatable, Identifiable, Sendable {
     public var contrast = 0.0
     public var saturation = 0.0
     public var temperature = 0.0
+    private var hue: Double?
     public var automaticPNG: Data?
 
     public init(kind: Kind) { self.kind = kind }
@@ -33,13 +41,19 @@ public struct LocalMask: Codable, Equatable, Identifiable, Sendable {
         return kind == .brush ? strokes.contains { !$0.points.isEmpty && !$0.erases } : start != end
     }
 
+    public var hueRotation: Double {
+        get { hue ?? 0 }
+        set { hue = newValue == 0 ? nil : newValue }
+    }
+
     var automaticBitmap: CIImage? {
         guard let automaticPNG else { return nil }
         return CIImage(data: automaticPNG, options: [.colorSpace: NSNull()])
     }
 
     var isActive: Bool {
-        enabled && hasShape && opacity > 0 && (exposure != 0 || contrast != 0 || saturation != 0 || temperature != 0)
+        enabled && hasShape && opacity > 0 &&
+            (exposure != 0 || contrast != 0 || saturation != 0 || temperature != 0 || hueRotation != 0)
     }
 
     public struct BrushStroke: Codable, Equatable, Sendable {
@@ -90,6 +104,9 @@ enum LocalMaskRenderer {
                 throw LightImageError.exportFailed("Không thể tạo vùng mặt nạ.")
             }
             var effect = result
+            if mask.hueRotation != 0 {
+                effect = effect.applyingFilter("CIHueAdjust", parameters: [kCIInputAngleKey: mask.hueRotation * .pi / 180])
+            }
             if mask.temperature != 0 {
                 effect = effect.applyingFilter("CITemperatureAndTint", parameters: [
                     "inputNeutral": CIVector(x: 6500 * pow(2, mask.temperature / 200), y: 0),

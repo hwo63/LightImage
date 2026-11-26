@@ -6,11 +6,22 @@ public struct PortraitSubject: Sendable {
     public let eyes: [CGRect]
     public let lips: CGRect?
     public var waist: PortraitWaist?
+    var nose: CGRect? = nil
+    var arms: [PortraitLimb] = []
+    var legs: [PortraitLimb] = []
+
+    public var canSlimArms: Bool { !arms.isEmpty }
+    public var canSlimLegs: Bool { !legs.isEmpty }
 
     public func matches(_ selection: CGRect) -> Bool {
         let overlap = face.intersection(selection)
         return !overlap.isNull && overlap.width * overlap.height > face.width * face.height * 0.45
     }
+}
+
+struct PortraitLimb: Sendable {
+    let start: CGPoint
+    let end: CGPoint
 }
 
 public struct PortraitWaist: Codable, Equatable, Sendable {
@@ -53,7 +64,8 @@ public struct PortraitAnalysis: Sendable {
                     guard let eye = bounds(eye) else { return nil }
                     return bounds(brow).map { eye.union($0) } ?? eye
                 }
-                return PortraitSubject(face: box, eyes: eyes, lips: bounds(landmarks?.outerLips), waist: nil)
+                return PortraitSubject(face: box, eyes: eyes, lips: bounds(landmarks?.outerLips), waist: nil,
+                                       nose: bounds(landmarks?.nose))
             }
             .sorted { $0.face.midX < $1.face.midX }
 
@@ -63,22 +75,42 @@ public struct PortraitAnalysis: Sendable {
             if (try? handler.perform([poses])) != nil {
                 let aspect = Double(image.height) / Double(image.width)
                 for pose in poses.results ?? [] {
-                    guard let (head, waist) = waist(in: pose, aspect: aspect) else { continue }
+                    guard let points = try? pose.recognizedPoints(.all),
+                          let nose = points[.nose], nose.confidence >= 0.45 else { continue }
+                    let head = nose.location
                     let matches = subjects.indices.filter { subjects[$0].face.contains(head) }
                     guard matches.count == 1, let index = matches.first else { continue }
-                    subjects[index].waist = waist
+                    subjects[index].waist = waist(in: points, head: head, aspect: aspect)
+                    subjects[index].arms = limbs(in: points, chains: [
+                        [.leftShoulder, .leftElbow, .leftWrist], [.rightShoulder, .rightElbow, .rightWrist]
+                    ])
+                    subjects[index].legs = limbs(in: points, chains: [
+                        [.leftHip, .leftKnee, .leftAnkle], [.rightHip, .rightKnee, .rightAnkle]
+                    ])
                 }
             }
         }
         return Self(subjects: subjects)
     }
 
-    private static func waist(in pose: VNHumanBodyPoseObservation, aspect: Double) -> (CGPoint, PortraitWaist)? {
-        func point(_ key: VNHumanBodyPoseObservation.JointName, confidence: Float = 0.45) -> CGPoint? {
-            guard let point = try? pose.recognizedPoint(key), point.confidence >= confidence else { return nil }
+    private typealias Joint = VNHumanBodyPoseObservation.JointName
+
+    private static func limbs(in points: [Joint: VNRecognizedPoint], chains: [[Joint]]) -> [PortraitLimb] {
+        chains.flatMap { joints in
+            zip(joints, joints.dropFirst()).compactMap { start, end in
+                guard let a = points[start], let b = points[end], a.confidence >= 0.55, b.confidence >= 0.55,
+                      a.location != b.location else { return nil }
+                return PortraitLimb(start: a.location, end: b.location)
+            }
+        }
+    }
+
+    private static func waist(in points: [Joint: VNRecognizedPoint], head: CGPoint, aspect: Double) -> PortraitWaist? {
+        func point(_ key: Joint) -> CGPoint? {
+            guard let point = points[key], point.confidence >= 0.45 else { return nil }
             return point.location
         }
-        guard let head = point(.nose), let leftHip = point(.leftHip), let rightHip = point(.rightHip),
+        guard let leftHip = point(.leftHip), let rightHip = point(.rightHip),
               let leftShoulder = point(.leftShoulder), let rightShoulder = point(.rightShoulder) else { return nil }
 
         let hips = CGPoint(x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2)
@@ -89,6 +121,6 @@ public struct PortraitAnalysis: Sendable {
 
         let center = CGPoint(x: hips.x + (shoulders.x - hips.x) * 0.30, y: hips.y + (shoulders.y - hips.y) * 0.30)
         let angle = atan2(hips.x - shoulders.x, (shoulders.y - hips.y) * aspect)
-        return (head, PortraitWaist(center: center, width: min(hipWidth * 2.15, torso * 1.6), angle: angle))
+        return PortraitWaist(center: center, width: min(hipWidth * 2.15, torso * 1.6), angle: angle)
     }
 }

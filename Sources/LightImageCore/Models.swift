@@ -25,7 +25,7 @@ public struct Adjustments: Codable, Equatable, Sendable {
     public var hasPortraitEdits: Bool { PortraitControl.allCases.contains { self[$0.key] > 0 } }
     var needsPortraitAnalysis: Bool {
         self[PortraitControl.brighten.key] > 0 || self[PortraitControl.smooth.key] > 0 ||
-        self[PortraitControl.faceSlim.key] > 0 ||
+        self[PortraitControl.faceSlim.key] > 0 || self[PortraitControl.armSlim.key] > 0 || self[PortraitControl.legSlim.key] > 0 ||
         (self[PortraitControl.waistSlim.key] > 0 && portraitWaist == nil)
     }
     public mutating func keepPortrait(from source: Adjustments) {

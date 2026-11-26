@@ -70,6 +70,24 @@ final class LocalEditingTests: XCTestCase {
         }
     }
 
+    func testHairHueStaysInsidePaintedRegionAndSurvivesSave() throws {
+        let source = CIImage(color: CIColor(red: 0.7, green: 0.21, blue: 0.11)).cropped(to: extent)
+        var mask = LocalMask(kind: .brush)
+        mask.purpose = .hair
+        mask.hueRotation = 120
+        mask.strokes = [.init(points: [CGPoint(x: 0.25, y: 0.5)], radius: 0.1, erases: false)]
+        var edits = Adjustments()
+        edits.localMasks = [mask]
+
+        let saved = try JSONEncoder().encode(edits)
+        let decoded = try JSONDecoder().decode(Adjustments.self, from: saved)
+        XCTAssertEqual(decoded, edits)
+        XCTAssertTrue(decoded.isEdited)
+        let result = try engine.render(source, adjustments: decoded, unframed: true)
+        XCTAssertNotEqual(sample(result, 40, 50), sample(source, 40, 50))
+        XCTAssertEqual(sample(result, 120, 50), sample(source, 120, 50))
+    }
+
     func testImportedFilmControlsRenderDeterministically() throws {
         let xml = """
         <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">

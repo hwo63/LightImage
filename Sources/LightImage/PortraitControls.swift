@@ -22,17 +22,32 @@ struct PortraitControls: View {
 
             Group {
                 AdjustmentSlider(title: "Làm sáng da", key: PortraitControl.brighten.key, range: 0...100)
-                AdjustmentSlider(title: "Làm mịn da", key: PortraitControl.smooth.key, range: 0...100)
+                AdjustmentSlider(title: "Làm mịn da và giảm mụn", key: PortraitControl.smooth.key, range: 0...100)
+                    .help("Làm dịu chi tiết nhỏ và giảm đốm mụn cục bộ, giữ nét mắt và môi.")
                 AdjustmentSlider(title: "Thon mặt", key: PortraitControl.faceSlim.key, range: 0...100)
             }.disabled(selectedSubjects.isEmpty)
             AdjustmentSlider(title: "Thon eo", key: PortraitControl.waistSlim.key, range: 0...100)
                 .disabled(model.edits.portraitWaist == nil && !selectedSubjects.contains { $0.waist != nil })
             waistControls
+            AdjustmentSlider(title: "Thon tay", key: PortraitControl.armSlim.key, range: 0...100)
+                .disabled(!selectedSubjects.contains(where: \.canSlimArms))
+                .help("Vision cần nhận diện được các khớp tay của người đã chọn.")
+            AdjustmentSlider(title: "Thon chân", key: PortraitControl.legSlim.key, range: 0...100)
+                .disabled(!selectedSubjects.contains(where: \.canSlimLegs))
+                .help("Vision cần nhận diện được các khớp chân của người đã chọn.")
+            Button { model.editHair() } label: { Label("Chỉnh tóc…", systemImage: "paintbrush") }
+                .font(.system(size: 11)).foregroundStyle(Theme.accent)
+                .disabled(!model.canEditHair)
+                .help("Tô vùng tóc để chỉnh riêng sắc màu, độ sáng và độ bão hòa.")
             Button("Đặt lại chỉnh sửa chân dung") {
-                model.change("Đặt lại chỉnh sửa chân dung") { $0.keepPortrait(from: Adjustments()) }
+                model.change("Đặt lại chỉnh sửa chân dung") {
+                    $0.keepPortrait(from: Adjustments())
+                    $0.localMasks?.removeAll { $0.purpose == .hair }
+                }
             }
             .font(.system(size: 10)).foregroundStyle(Theme.muted)
-            .disabled(!model.edits.hasPortraitEdits && model.edits.portraitFace == nil && model.edits.portraitWaist == nil)
+            .disabled(!model.edits.hasPortraitEdits && model.edits.portraitFace == nil &&
+                      model.edits.portraitWaist == nil && model.hairMask == nil)
             .sheet(isPresented: $locatingWaist) {
                 WaistPicker(image: preview.source, initial: model.edits.portraitWaist) { model.setPortraitWaist($0) }
             }
