@@ -98,6 +98,12 @@ enum AdvancedEffects {
         let w = max(1,Int(preview.extent.width)), h = max(1,Int(preview.extent.height))
         var pixels = [UInt8](repeating: 0, count: w*h*4)
         engine.context.render(preview, toBitmap: &pixels, rowBytes: w*4, bounds: CGRect(x:0,y:0,width:w,height:h), format: .RGBA8, colorSpace: engine.colorSpace)
-        return stride(from:0,to:pixels.count,by:4).filter { pixels[$0+3] > 127 }.map { [Double(pixels[$0])/255,Double(pixels[$0+1])/255,Double(pixels[$0+2])/255] }
+        let opaqueOffsets = stride(from: 0, to: pixels.count, by: 4).filter { pixels[$0 + 3] > 127 }
+        return opaqueOffsets.map { offset in
+            let red = Double(pixels[offset]) / 255
+            let green = Double(pixels[offset + 1]) / 255
+            let blue = Double(pixels[offset + 2]) / 255
+            return [red, green, blue]
+        }
     }
 }
