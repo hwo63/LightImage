@@ -8,6 +8,7 @@ struct InspectorView: View {
     @State private var curveExpanded = false
     @State private var mixerExpanded = false
     @State private var detailExpanded = false
+    @State private var lensBlurExpanded = false
     @State private var effectsExpanded = false
     @State private var cropExpanded = false
     @State private var gradingExpanded = false
@@ -45,6 +46,35 @@ struct InspectorView: View {
                         }.foregroundStyle(Theme.accent).font(.system(size: 12, weight: .medium))
                             .padding(.horizontal, 20).frame(height: 32)
                     }.padding(.bottom, 8)
+                    Button { model.objectRemovalSheet = true } label: {
+                        HStack {
+                            Image(systemName: "eraser").frame(width: 16)
+                            Text("Xóa vật thể AI")
+                            Spacer()
+                            if let repairs = model.edits.objectRepairs, !repairs.isEmpty { Text("\(repairs.count)") }
+                            Image(systemName: "arrow.up.right").font(.system(size: 9))
+                        }
+                        .foregroundStyle(Theme.accent).font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 20).frame(height: 32)
+                    }
+                    section("Xóa phông · Lens Blur", icon: "camera.aperture", expanded: $lensBlurExpanded) {
+                        if model.edits.lensBlurSubject == nil {
+                            Button("Nhận diện chủ thể") { Task { await model.prepareLensBlur() } }
+                                .foregroundStyle(Theme.accent).disabled(model.isPreparingLensBlur)
+                            if model.isPreparingLensBlur { ProgressView("Đang nhận diện…").controlSize(.small) }
+                            if let message = model.lensBlurMessage {
+                                Text(message).font(.system(size: 11)).foregroundStyle(Theme.muted)
+                            }
+                        } else {
+                            AdjustmentSlider(title: "Độ mờ hậu cảnh", key: PhotoEnhancement.lensBlur.key, range: 0...100)
+                            Button("Bỏ xóa phông") {
+                                model.change("Bỏ xóa phông") {
+                                    $0.lensBlurSubject = nil
+                                    $0.values.removeValue(forKey: PhotoEnhancement.lensBlur.key)
+                                }
+                            }.foregroundStyle(Theme.muted)
+                        }
+                    }
                     section("Chân dung", icon: "person.crop.rectangle", expanded: Binding(
                         get: { model.portraitInspectorOpen },
                         set: { model.showPortraitInspector($0) }
@@ -104,7 +134,10 @@ struct InspectorView: View {
                         }
                         AdjustmentSlider(title: "Sắc độ vùng tối", key: "ShadowTint")
                     }
-                    section("Chi tiết", icon: "triangle", expanded: $detailExpanded) {
+                    section("Chi tiết & Phục hồi", icon: "triangle", expanded: $detailExpanded) {
+                        AdjustmentSlider(title: "Tăng chi tiết", key: PhotoEnhancement.detail.key, range: 0...100)
+                        AdjustmentSlider(title: "Phục hồi ảnh cũ", key: PhotoEnhancement.restore.key, range: 0...100)
+                            .help("Giảm đốm nhỏ và cân lại độ tương phản của ảnh phai.")
                         AdjustmentSlider(title: "Kết cấu", key: "Texture")
                         AdjustmentSlider(title: "Độ rõ", key: "Clarity2012")
                         AdjustmentSlider(title: "Độ sắc nét", key: "Sharpness", range: 0...150)
@@ -292,7 +325,7 @@ struct ExportView: View {
     @State private var format = "jpg"
     @State private var quality = 0.95
     @State private var size = 0.0
-    @State private var all = false
+    @State private var scope: ExportScope = .current
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             HStack(spacing: 13) { Image(systemName: "square.and.arrow.up").font(.title2).foregroundStyle(Theme.accent); VStack(alignment: .leading, spacing: 4) { Text("Mang bức ảnh ra thế giới").font(.system(size: 22, weight: .light, design: .serif)); Text("Kết xuất từ ảnh gốc với các chỉnh sửa của bạn.").font(.system(size: 11)).foregroundStyle(Theme.muted) } }
@@ -300,11 +333,23 @@ struct ExportView: View {
                 Picker("Định dạng", selection: $format) { Text("JPEG · 8-bit").tag("jpg"); Text("PNG · 8-bit").tag("png"); Text("TIFF · 16-bit").tag("tiff") }
                 if format == "jpg" { HStack { Text("Chất lượng"); Slider(value: $quality, in: 0.1...1); Text("\(Int(quality * 100))%").monospacedDigit().frame(width: 40) } }
                 Picker("Cạnh dài tối đa", selection: $size) { Text("Độ phân giải gốc").tag(0.0); Text("3840 px").tag(3840.0); Text("2560 px").tag(2560.0); Text("2048 px").tag(2048.0); Text("1080 px").tag(1080.0) }
-                Toggle("Xuất tất cả \(model.photos.count) ảnh đang lọc", isOn: $all).disabled(model.photos.isEmpty)
+                Picker("Phạm vi xuất", selection: $scope) {
+                    Text("Ảnh đang mở").tag(ExportScope.current)
+                    Text("Ảnh đã chọn (\(model.batchSelection.count))").tag(ExportScope.selected)
+                    Text("Toàn bộ ảnh đã chỉnh (\(model.exportTargets(.edited).count))").tag(ExportScope.edited)
+                    Text("Ảnh đang lọc (\(model.photos.count))").tag(ExportScope.filtered)
+                }
             }.formStyle(.grouped).frame(height: format == "jpg" ? 205 : 170)
             Text("Không gian màu sRGB. Không sao chép EXIF/GPS. Xuất hàng loạt tự thêm số nếu trùng tên; ảnh gốc trong thư viện luôn được giữ nguyên.").font(.system(size: 11)).foregroundStyle(Theme.muted).lineSpacing(4)
-            HStack { Button("Hủy") { model.exportSheet = false }.keyboardShortcut(.cancelAction); Spacer(); Button("Chọn nơi lưu & Xuất") { model.export(format: format, quality: quality, maxDimension: size, all: all) }.buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction) }
+            HStack {
+                Button("Hủy") { model.exportSheet = false }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Chọn nơi lưu & Xuất") { model.export(format: format, quality: quality, maxDimension: size, scope: scope) }
+                    .buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction)
+                    .disabled(model.exportTargets(scope).isEmpty)
+            }
         }.padding(28).frame(width: 500).background(Theme.panel).tint(Theme.accent)
+            .onAppear { if !model.batchSelection.isEmpty { scope = .selected } }
     }
 }
 

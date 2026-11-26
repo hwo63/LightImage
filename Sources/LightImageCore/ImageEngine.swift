@@ -67,7 +67,10 @@ public final class ImageEngine: @unchecked Sendable {
                        unframed: Bool = false) throws -> CIImage {
         let originalLongEdge = source.properties["LightImageOriginalLongEdge"] as? Double ?? max(source.extent.width,source.extent.height)
         let pixelScale = max(source.extent.width,source.extent.height) / max(1,originalLongEdge)
-        var image = try AdvancedEffects.reduceNoise(source, a, pixelScale: pixelScale)
+        let repaired = try ObjectRepair.composite(a.objectRepairs ?? [], over: source)
+        var image = try AdvancedEffects.reduceNoise(repaired, a, pixelScale: pixelScale)
+        image = try PhotoEnhancement.restore(image, amount: a[PhotoEnhancement.restore.key], engine: self)
+        image = try PhotoEnhancement.blurBackground(image, foreground: a.lensBlurSubject, amount: a[PhotoEnhancement.lensBlur.key])
         if a.hasPortraitEdits {
             let analysis = try portrait ?? (a.needsPortraitAnalysis ? analyzePortrait(source) : PortraitAnalysis(subjects: []))
             image = try PortraitEffects.apply(image, adjustments: a, analysis: analysis)
@@ -100,6 +103,7 @@ public final class ImageEngine: @unchecked Sendable {
             image = image.clampedToExtent().applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: max(0.5, 2 * sizeScale), kCIInputIntensityKey: texture * 0.65]).cropped(to: source.extent)
         }
         image = try AdvancedEffects.sharpen(image, a, pixelScale: pixelScale)
+        image = PhotoEnhancement.enhanceDetail(image, amount: a[PhotoEnhancement.detail.key])
         image = try LocalMaskRenderer.apply(image, masks: a.localMasks ?? [])
         if unframed { return image }
         return try finishFrame(image, adjustments: a)

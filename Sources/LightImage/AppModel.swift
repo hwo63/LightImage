@@ -33,6 +33,10 @@ struct EditStep: Identifiable {
     let after: Adjustments
 }
 
+enum ExportScope: Hashable {
+    case current, selected, edited, filtered
+}
+
 private final class PreviewCache: @unchecked Sendable {
     var path: String?
     var source: CIImage?
@@ -55,6 +59,7 @@ private struct MaskPreviewRequest: Sendable {
 @MainActor final class AppModel: ObservableObject {
     @Published var catalog = Catalog()
     @Published var selectedID: UUID?
+    @Published private(set) var batchSelection: Set<UUID> = []
     @Published var edits = Adjustments()
     @Published var preview: NSImage?
     @Published var original: NSImage?
@@ -90,6 +95,9 @@ private struct MaskPreviewRequest: Sendable {
         }
     }
     @Published var exportSheet = false
+    @Published var objectRemovalSheet = false
+    @Published private(set) var isPreparingLensBlur = false
+    @Published private(set) var lensBlurMessage: String?
     @Published var selectedPreset: UUID?
     @Published var history: [UUID: [EditStep]] = [:]
     @Published var redoHistory: [UUID: [EditStep]] = [:]
@@ -116,6 +124,7 @@ private struct MaskPreviewRequest: Sendable {
     private var gestureStart: Adjustments?
     private let cache = PreviewCache()
     private let engine = ImageEngine()
+    private lazy var generativeRemoval = GenerativeRemoval(modelDirectory: dataDirectory.appendingPathComponent("Models"))
     let dataDirectory: URL
     private var persistenceAvailable = true
 
@@ -132,6 +141,8 @@ private struct MaskPreviewRequest: Sendable {
     var canUndo: Bool { !currentHistory.isEmpty }
     var canRedo: Bool { !(selectedID.flatMap { redoHistory[$0] } ?? []).isEmpty }
     var activePreset: PhotoPreset? { presets.first { $0.id == selectedPreset } }
+    var batchPhotos: [PhotoRecord] { catalog.photos.filter { batchSelection.contains($0.id) } }
+    var canAdjustPresetStrength: Bool { activePreset != nil && presetBase != nil }
     var hairMask: LocalMask? { edits.localMasks?.first { $0.purpose == .hair } }
     var canEditHair: Bool {
         selectedID != nil && (hairMask != nil || (edits.localMasks?.count ?? 0) < LocalMask.maximumCount)
@@ -177,6 +188,7 @@ private struct MaskPreviewRequest: Sendable {
         preview = nil; original = nil; histogram = []; sourceSize = ""; compare = false; splitCompare = false
         resetMaskPreview()
         portraitPreview = nil; portraitAnalysisFailed = false
+        lensBlurMessage = nil
         scheduleRender(immediate: true)
     }
 
@@ -221,11 +233,59 @@ private struct MaskPreviewRequest: Sendable {
         maskSheet = true
     }
 
+    func prepareLensBlur() async {
+        guard let photo = selected, !isPreparingLensBlur else { return }
+        isPreparingLensBlur = true
+        lensBlurMessage = nil
+        defer { isPreparingLensBlur = false }
+        do {
+            let foreground = try await detectMask(.subject, for: photo)
+            guard selectedID == photo.id, selected?.path == photo.path else { return }
+            change("Xóa phông") {
+                $0.lensBlurSubject = foreground
+                if $0[PhotoEnhancement.lensBlur.key] == 0 { $0[PhotoEnhancement.lensBlur.key] = 40 }
+            }
+        } catch {
+            if selectedID == photo.id, selected?.path == photo.path { lensBlurMessage = error.localizedDescription }
+        }
+    }
+
+    func objectRemovalPreview(for photo: PhotoRecord) async throws -> NSImage {
+        let raster: CGImage = try await withCheckedThrowingContinuation { continuation in
+            maskQueue.async { [engine] in
+                continuation.resume(with: Result {
+                    let base = try engine.load(url: URL(fileURLWithPath: photo.path), maxDimension: 1800)
+                    let repaired = try ObjectRepair.composite(photo.adjustments.objectRepairs ?? [], over: base)
+                    return try engine.cgImage(repaired)
+                })
+            }
+        }
+        return NSImage(cgImage: raster, size: .zero)
+    }
+
+    func removeObject(in photo: PhotoRecord, strokes: [LocalMask.BrushStroke]) async throws {
+        let previous = photo.adjustments.objectRepairs ?? []
+        let repair = try await generativeRemoval.repair(url: URL(fileURLWithPath: photo.path), repairs: previous, strokes: strokes)
+        try Task.checkCancellation()
+        guard selectedID == photo.id, selected?.path == photo.path, (edits.objectRepairs ?? []) == previous else {
+            throw LightImageError.exportFailed("Ảnh đã thay đổi trong lúc xử lý. Hãy tô lại trên ảnh đang mở.")
+        }
+        change("Xóa vật thể AI") { $0.objectRepairs = previous + [repair] }
+    }
+
     func moveSelection(_ delta: Int) {
         guard !photos.isEmpty else { return }
         let index = photos.firstIndex { $0.id == selectedID } ?? 0
         select(photos[min(max(index + delta, 0), photos.count - 1)].id)
     }
+
+    func setBatchSelection(_ id: UUID, included: Bool) {
+        if included, catalog.photos.contains(where: { $0.id == id }) { batchSelection.insert(id) }
+        else { batchSelection.remove(id) }
+    }
+
+    func selectVisibleForBatch() { batchSelection.formUnion(photos.map(\.id)) }
+    func clearBatchSelection() { batchSelection.removeAll() }
     func importPhotos() {
         let panel = NSOpenPanel()
         panel.title = "Nhập ảnh hoặc thư mục ảnh"
@@ -397,9 +457,14 @@ private struct MaskPreviewRequest: Sendable {
         let before = edits; block(&edits); record(label, before: before); commitCurrent(); scheduleRender()
     }
     func record(_ label: String, before: Adjustments) {
-        guard let id = selectedID, before != edits else { return }
-        invalidateMaskStrokeRedo(for: id, from: before, to: edits)
-        history[id, default: []].append(EditStep(label: label, before: before, after: edits))
+        guard let id = selectedID else { return }
+        record(label, for: id, before: before, after: edits)
+    }
+
+    private func record(_ label: String, for id: UUID, before: Adjustments, after: Adjustments) {
+        guard before != after else { return }
+        invalidateMaskStrokeRedo(for: id, from: before, to: after)
+        history[id, default: []].append(EditStep(label: label, before: before, after: after))
         if history[id, default: []].count > 100 { history[id]?.removeFirst() }
         redoHistory[id] = []
     }
@@ -413,9 +478,39 @@ private struct MaskPreviewRequest: Sendable {
             status = "Không áp dụng được \(preset.name) · Không có thông số được hỗ trợ"
             return
         }
+        if !batchSelection.isEmpty {
+            applyPresetToSelection(preset)
+            return
+        }
         presetBase = edits; presetStrength = 100; selectedPreset = preset.id
         change(preset.name) { $0.apply(preset) }
         status = "Đã áp dụng \(preset.name)"
+    }
+
+    private func applyPresetToSelection(_ preset: PhotoPreset) {
+        endGesture("Điều chỉnh")
+        var processed: [PhotoRecord] = []
+        for index in catalog.photos.indices where batchSelection.contains(catalog.photos[index].id) {
+            var photo = catalog.photos[index]
+            let before = photo.adjustments
+            photo.adjustments.apply(preset)
+            record(preset.name, for: photo.id, before: before, after: photo.adjustments)
+            catalog.photos[index] = photo
+            processed.append(photo)
+        }
+        guard let first = processed.first else { return }
+        if let active = processed.first(where: { $0.id == selectedID }) {
+            edits = active.adjustments
+            scheduleRender(immediate: true)
+        } else {
+            select(first.id)
+        }
+        selectedPreset = preset.id
+        presetBase = nil
+        presetStrength = 100
+        createThumbnails(processed.filter { $0.id != selectedID })
+        save()
+        status = "Đã áp dụng \(preset.name) cho \(processed.count) ảnh đã chọn"
     }
     func updatePresetStrength(_ value: Double) {
         guard let preset = activePreset, let base = presetBase else { return }
@@ -423,7 +518,7 @@ private struct MaskPreviewRequest: Sendable {
         let current = edits
         edits = base; edits.apply(preset, amount: value / 100)
         edits.keepPortrait(from: current)
-        edits.localMasks = current.localMasks
+        edits.keepLocalEdits(from: current)
         edits.flipHorizontal = current.flipHorizontal
         edits.flipVertical = current.flipVertical
         edits.values["LightImageStraighten"] = current.values["LightImageStraighten"]
@@ -455,7 +550,7 @@ private struct MaskPreviewRequest: Sendable {
                 let current = $0
                 $0 = copyBuffer
                 $0.keepPortrait(from: current)
-                $0.localMasks = current.localMasks
+                $0.keepLocalEdits(from: current)
             }
         }
     }
@@ -466,7 +561,7 @@ private struct MaskPreviewRequest: Sendable {
                 let before = catalog.photos[i].adjustments
                 var after = snapshot
                 after.keepPortrait(from: before)
-                after.localMasks = before.localMasks
+                after.keepLocalEdits(from: before)
                 catalog.photos[i].adjustments = after
                 history[photo.id, default: []].append(EditStep(label: "Đồng bộ chỉnh sửa", before: before, after: after))
                 redoHistory[photo.id] = []
@@ -479,7 +574,7 @@ private struct MaskPreviewRequest: Sendable {
         guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         var settings = edits
         settings.keepPortrait(from: Adjustments())
-        settings.localMasks = nil
+        settings.keepLocalEdits(from: Adjustments())
         settings.values.removeValue(forKey: "LightImageStraighten")
         catalog.presets.append(PhotoPreset(name: name, group: "Preset của tôi", settings: settings, monochrome: edits.monochrome))
         save(); status = "Đã lưu preset \(name)"
@@ -504,6 +599,7 @@ private struct MaskPreviewRequest: Sendable {
     func removeSelected() {
         guard let selectedID else { return }
         catalog.photos.removeAll { $0.id == selectedID }; thumbnails[selectedID] = nil
+        batchSelection.remove(selectedID)
         self.selectedID = nil; preview = nil; original = nil; edits = Adjustments(); generation = UUID()
         resetMaskPreview()
         portraitPreview = nil; portraitAnalysisFailed = false
@@ -663,21 +759,32 @@ private struct MaskPreviewRequest: Sendable {
             }
         }
     }
-    func export(format: String, quality: Double, maxDimension: Double, all: Bool) {
-        let targets = all ? photos : selected.map { [$0] } ?? []
-        guard !targets.isEmpty else { return }
+    func exportTargets(_ scope: ExportScope) -> [PhotoRecord] {
+        switch scope {
+        case .current: return selected.map { [$0] } ?? []
+        case .selected: return batchPhotos
+        case .edited: return catalog.photos.filter { $0.adjustments.isEdited }
+        case .filtered: return photos
+        }
+    }
+
+    func export(format: String, quality: Double, maxDimension: Double, scope: ExportScope) {
+        let targets = exportTargets(scope)
+        guard !isExporting, !targets.isEmpty else { return }
         var jobs: [(PhotoRecord, URL)] = []
-        if all {
+        if scope != .current {
             let panel = NSOpenPanel(); panel.title = "Chọn thư mục xuất \(targets.count) ảnh"; panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
             guard panel.runModal() == .OK, let directory = panel.url else { return }
             var reserved = Set<String>()
             for photo in targets {
                 let stem = (photo.name as NSString).deletingPathExtension + "-edited"
                 var destination = directory.appendingPathComponent(stem).appendingPathExtension(format), suffix = 1
-                while FileManager.default.fileExists(atPath: destination.path) || reserved.contains(destination.path) {
+                while FileManager.default.fileExists(atPath: destination.path) ||
+                        reserved.contains(destination.path.lowercased().precomposedStringWithCanonicalMapping) {
                     destination = directory.appendingPathComponent("\(stem)-\(suffix)").appendingPathExtension(format); suffix += 1
                 }
-                reserved.insert(destination.path); jobs.append((photo, destination))
+                reserved.insert(destination.path.lowercased().precomposedStringWithCanonicalMapping)
+                jobs.append((photo, destination))
             }
         } else {
             let panel = NSSavePanel(); panel.title = "Xuất ảnh"; panel.nameFieldStringValue = (targets[0].name as NSString).deletingPathExtension + "-edited.\(format)"

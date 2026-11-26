@@ -35,6 +35,7 @@ public enum PresetParameters {
     }()
     public static func isActive(_ key: String, in a: Adjustments) -> Bool {
         switch key {
+        case PhotoEnhancement.lensBlur.key: return a.lensBlurSubject != nil
         case "GrainSize", "GrainFrequency": return a["GrainAmount"] > 0
         case "PostCropVignetteMidpoint", "PostCropVignetteFeather", "PostCropVignetteRoundness", "PostCropVignetteHighlightContrast":
             return (a.values["PostCropVignetteAmount"] ?? a["VignetteAmount"]) != 0

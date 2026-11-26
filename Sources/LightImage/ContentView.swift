@@ -50,6 +50,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $model.exportSheet) { ExportView() }
         .sheet(isPresented: $model.maskSheet) { MaskEditor() }
+        .sheet(isPresented: $model.objectRemovalSheet) {
+            if let photo = model.selected { ObjectRemovalEditor(photo: photo).id(photo.id) }
+        }
     }
     private var topbar: some View {
         HStack(spacing: 0) {
@@ -135,6 +138,11 @@ struct SidebarView: View {
             } else {
                 HStack(spacing: 6) { Image(systemName: "magnifyingglass"); TextField("Tìm preset…", text: $model.presetQuery).textFieldStyle(.plain) }
                     .font(.system(size: 11)).foregroundStyle(Theme.muted).padding(9).background(Theme.background, in: RoundedRectangle(cornerRadius: 5)).padding(.horizontal, 16).padding(.top, 16)
+                if !model.batchSelection.isEmpty {
+                    Text("Áp dụng preset cho \(model.batchSelection.count) ảnh đã chọn")
+                        .font(.system(size: 10)).foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.top, 9)
+                }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(Set(model.visiblePresets.map(\.group))).sorted(), id: \.self) { group in
@@ -145,7 +153,7 @@ struct SidebarView: View {
                         }
                     }.padding(.horizontal, 12).padding(.bottom, 16)
                 }
-                if model.activePreset != nil {
+                if model.canAdjustPresetStrength {
                     VStack(alignment: .leading, spacing: 7) {
                         HStack { Text("Cường độ preset"); Spacer(); Text("\(Int(model.presetStrength))%") }.font(.system(size: 10)).foregroundStyle(Theme.muted)
                         Slider(value: Binding(get: { model.presetStrength }, set: { model.updatePresetStrength($0) }), in: 0...100, onEditingChanged: { if !$0 { model.endGesture("Cường độ preset") } }).controlSize(.mini)
@@ -181,7 +189,6 @@ struct SidebarView: View {
                 RoundedRectangle(cornerRadius: 3).fill(preset.monochrome == true ? AnyShapeStyle(LinearGradient(colors: [.gray, .black], startPoint: .topLeading, endPoint: .bottomTrailing)) : AnyShapeStyle(LinearGradient(colors: [Theme.accent.opacity(0.65), Color(red: 0.25, green: 0.4, blue: 0.38), Color(red: 0.69, green: 0.48, blue: 0.31)], startPoint: .topLeading, endPoint: .bottomTrailing))).frame(width: 28, height: 28)
                 Text(preset.name).font(.system(size: 11)).lineLimit(1)
                 Spacer(minLength: 0)
-                if !preset.unsupported.isEmpty { Image(systemName: "exclamationmark.circle").font(.system(size: 10)).foregroundStyle(.orange) }
                 if model.selectedPreset == preset.id { Image(systemName: "checkmark").font(.system(size: 10)).foregroundStyle(Theme.accent) }
             }.padding(7).background(model.selectedPreset == preset.id ? Theme.accent.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 5))
         }.disabled(model.selected == nil).help(preset.source + (preset.unsupported.isEmpty ? "" : " · Có thông số chưa hỗ trợ"))
@@ -380,6 +387,10 @@ struct FilmstripView: View {
             Rectangle().fill(Theme.line).frame(height: 1)
             HStack {
                 Text("\(model.photos.count) ẢNH").font(.system(size: 9, weight: .semibold)).tracking(1.2)
+                if !model.batchSelection.isEmpty {
+                    Text("\(model.batchSelection.count) đã chọn").foregroundStyle(Theme.accent)
+                    Button("Bỏ chọn") { model.clearBatchSelection() }
+                }
                 Spacer()
                 Button { model.moveSelection(-1) } label: { Image(systemName: "chevron.left") }
                 Button { model.moveSelection(1) } label: { Image(systemName: "chevron.right") }.padding(.leading, 12)
@@ -393,7 +404,7 @@ struct FilmstripView: View {
                                     Thumbnail(photo: photo).frame(width: 102, height: 66).clipped().padding(3).background(model.selectedID == photo.id ? Theme.accent.opacity(0.1) : Theme.surface).clipShape(RoundedRectangle(cornerRadius: 4)).overlay(RoundedRectangle(cornerRadius: 4).stroke(model.selectedID == photo.id ? Theme.accent : .clear, lineWidth: 1))
                                     Text(photo.name).font(.system(size: 8)).foregroundStyle(model.selectedID == photo.id ? Theme.accent : Theme.muted).lineLimit(1).frame(width: 104)
                                 }
-                            }.id(photo.id)
+                            }.overlay(alignment: .topLeading) { BatchPhotoCheckbox(photo: photo) }.id(photo.id)
                         }
                     }.padding(.horizontal, 22).padding(.bottom, 10)
                 }.scrollIndicators(.hidden).onChange(of: model.selectedID) { _, id in if let id { withAnimation { proxy.scrollTo(id) } } }
@@ -409,6 +420,9 @@ struct LibraryView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 5) { Text("Những khung hình của bạn").font(.system(size: 22, weight: .light, design: .serif)); Text("\(model.photos.count) ảnh trong chế độ lọc hiện tại").font(.system(size: 11)).foregroundStyle(Theme.muted) }
                 Spacer()
+                Button("Chọn ảnh đang lọc") { model.selectVisibleForBatch() }
+                    .disabled(model.photos.isEmpty)
+                    .font(.system(size: 11)).foregroundStyle(Theme.accent)
                 HStack { Image(systemName: "magnifyingglass"); TextField("Tìm tên ảnh", text: $model.query).textFieldStyle(.plain) }.font(.system(size: 11)).foregroundStyle(Theme.muted).padding(9).frame(width: 170).background(Theme.surface, in: RoundedRectangle(cornerRadius: 5))
             }
             if model.catalog.photos.isEmpty { WelcomeView() }
@@ -421,6 +435,7 @@ struct LibraryView: View {
                                 Thumbnail(photo: photo).frame(height: 148).frame(maxWidth: .infinity).background(Theme.panel).clipped().clipShape(RoundedRectangle(cornerRadius: 5)).overlay(RoundedRectangle(cornerRadius: 5).stroke(model.selectedID == photo.id ? Theme.accent : .clear))
                                     .onTapGesture(count: 2) { model.select(photo.id); model.libraryMode = false }
                                     .onTapGesture { model.select(photo.id) }
+                                    .overlay(alignment: .topLeading) { BatchPhotoCheckbox(photo: photo) }
                                 HStack { Text(photo.name).lineLimit(1); Spacer(); if photo.flagged { Image(systemName: "flag.fill").foregroundStyle(Theme.accent) } }.font(.system(size: 10))
                                 HStack(spacing: 3) { ForEach(0..<5) { i in Image(systemName: i < photo.rating ? "star.fill" : "star").font(.system(size: 8)).foregroundStyle(i < photo.rating ? Theme.accent : Theme.muted.opacity(0.5)) }; Spacer(); if photo.adjustments.isEdited { Text("Đã chỉnh").font(.system(size: 9)).foregroundStyle(Theme.accent) } }
                             }.contextMenu {
@@ -434,6 +449,20 @@ struct LibraryView: View {
                 }
             }
         }.padding(26).frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct BatchPhotoCheckbox: View {
+    @EnvironmentObject var model: AppModel
+    let photo: PhotoRecord
+
+    var body: some View {
+        Toggle("Chọn \(photo.name) cho tác vụ hàng loạt", isOn: Binding(
+            get: { model.batchSelection.contains(photo.id) },
+            set: { model.setBatchSelection(photo.id, included: $0) }
+        ))
+        .toggleStyle(.checkbox).labelsHidden().controlSize(.small)
+        .padding(5).background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 4)).padding(5)
     }
 }
 

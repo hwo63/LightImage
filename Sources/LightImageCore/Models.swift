@@ -20,6 +20,8 @@ public struct Adjustments: Codable, Equatable, Sendable {
     private var portraitRetouch: PortraitRetouch?
     public var portraitWaist: PortraitWaist?
     public var localMasks: [LocalMask]?
+    public var lensBlurSubject: Data?
+    public var objectRepairs: [ObjectRepair]?
     public var flipHorizontal: Bool?
     public var flipVertical: Bool?
     public init() {}
@@ -68,12 +70,19 @@ public struct Adjustments: Codable, Equatable, Sendable {
         portraitWaist = source.portraitWaist
         for control in PortraitControl.allCases { values[control.key] = source.values[control.key] }
     }
+    public mutating func keepLocalEdits(from source: Adjustments) {
+        localMasks = source.localMasks
+        objectRepairs = source.objectRepairs
+        lensBlurSubject = source.lensBlurSubject
+        values[PhotoEnhancement.lensBlur.key] = source.values[PhotoEnhancement.lensBlur.key]
+    }
     public subscript(_ key: String) -> Double {
         get { values[key] ?? PresetParameters.defaults[key] ?? 0 }
         set { values[key] = newValue }
     }
     public var isEdited: Bool {
         hasPortraitEdits || (trongTreo3Calibration ?? 0) > 0 || values.contains { !PresetParameters.isNeutral($0.key, value: $0.value, in: self) } ||
+        objectRepairs?.isEmpty == false ||
         !curves.isEmpty || monochrome || rotation % 4 != 0 || cropAspect != 0 || cropScale != 1 ||
         flipHorizontal == true || flipVertical == true || (localMasks?.contains(where: \.isActive) ?? false)
     }

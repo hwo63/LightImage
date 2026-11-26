@@ -22,6 +22,7 @@ struct ColorTreatment {
         result.values = a.values.filter {
             !externalKeys.contains($0.key) && !FilmEffects.keys.contains($0.key) &&
                 $0.key != "LightImageStraighten" && PortraitControl(rawValue: $0.key) == nil &&
+                PhotoEnhancement(rawValue: $0.key) == nil &&
                 !PresetParameters.isNeutral($0.key, value: $0.value, in: a)
         }
         return result
