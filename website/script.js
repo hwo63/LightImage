@@ -1,9 +1,35 @@
+const language = document.documentElement.lang;
+const isEnglish = language === 'en';
+const languageSwitch = document.querySelector('[data-language-switch]');
+
+if (languageSwitch) {
+  const destination = new URL(languageSwitch.href);
+  function updateLanguageLink() {
+    destination.hash = window.location.hash;
+    languageSwitch.href = destination.href;
+  }
+  updateLanguageLink();
+  window.addEventListener('hashchange', updateLanguageLink);
+
+  try {
+    const key = 'lightimage.siteLanguage';
+    const explicitlyVietnamese = new URLSearchParams(window.location.search).get('lang') === 'vi';
+    if (!isEnglish && !explicitlyVietnamese && window.localStorage.getItem(key) === 'en') {
+      window.location.replace(destination.href);
+    } else {
+      window.localStorage.setItem(key, language);
+    }
+  } catch {
+    // Both localized pages are available through their links without storage.
+  }
+}
+
 const range = document.querySelector('#comparison-range');
 const stage = document.querySelector('#comparison-stage');
 
 function updateComparison() {
   stage.style.setProperty('--split', `${range.value}%`);
-  range.setAttribute('aria-valuetext', `${range.value}% ảnh trước`);
+  range.setAttribute('aria-valuetext', `${range.value}% ${isEnglish ? 'before image' : 'ảnh trước'}`);
 }
 
 range.addEventListener('input', updateComparison);
@@ -25,16 +51,17 @@ if (player && play) {
 const copy = document.querySelector('.copy-button');
 if (navigator.clipboard?.writeText) {
   copy.hidden = false;
+  const originalLabel = copy.textContent;
   let reset;
   copy.addEventListener('click', async () => {
     clearTimeout(reset);
     try {
       await navigator.clipboard.writeText(copy.parentElement.querySelector('code').textContent);
-      copy.textContent = 'Đã sao chép';
+      copy.textContent = isEnglish ? 'Copied' : 'Đã sao chép';
     } catch {
-      copy.textContent = 'Chọn lệnh để sao chép';
+      copy.textContent = isEnglish ? 'Select the command to copy' : 'Chọn lệnh để sao chép';
     }
-    reset = setTimeout(() => { copy.textContent = 'Sao chép'; }, 2000);
+    reset = setTimeout(() => { copy.textContent = originalLabel; }, 2000);
   });
 }
 

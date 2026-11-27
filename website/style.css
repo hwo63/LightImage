@@ -42,13 +42,23 @@ section[id], main { scroll-margin-top: 94px; }
   backdrop-filter: blur(20px);
   border-bottom: 1px solid #24203512;
 }
-.nav { display: grid; grid-template-columns: 1fr auto 1fr; min-height: 62px; align-items: center; gap: 20px; }
+.nav { display: grid; grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr); min-height: 62px; align-items: center; gap: 20px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; justify-self: start; font-weight: 730; letter-spacing: -.035em; }
 .brand img { flex: none; width: 30px; height: 30px; }
 nav { display: flex; align-items: center; gap: clamp(14px, 3.1vw, 38px); }
 nav a, .nav-source, .site-footer a:not(.brand) { color: var(--muted); font-size: .9rem; font-weight: 550; white-space: nowrap; }
 nav a:hover, .nav-source:hover, .site-footer a:hover { color: var(--accent); }
-.nav-source { justify-self: end; }
+.nav-actions { display: flex; align-items: center; gap: clamp(10px, 2vw, 18px); justify-self: end; }
+.language-switch {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: .85rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.language-switch:hover { background: var(--lavender); }
 .nav-source span { padding-left: 3px; }
 
 .hero {
@@ -409,12 +419,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .color-measurement { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 600px) {
-  .wrap { width: calc(100% - 32px); }
+@media (max-width: 800px) {
   .nav { grid-template-columns: 1fr auto; gap: 0 10px; min-height: 80px; padding-block: 8px; }
   .nav nav { grid-row: 2; grid-column: 1 / -1; gap: 4px clamp(12px, 4vw, 25px); flex-wrap: wrap; }
   nav a { padding-block: 5px; }
   section[id], main { scroll-margin-top: 106px; }
+}
+
+@media (max-width: 600px) {
+  .wrap { width: calc(100% - 32px); }
   h1 { font-size: clamp(2.75rem, 11vw, 4.4rem); }
   .intro-play:not([hidden]) { inset-block-start: 12px; inset-inline-end: 12px; transform: none; padding-inline: 14px; }
   .comparison-frame { padding: 6px; padding-top: 0; border-radius: 16px; }
