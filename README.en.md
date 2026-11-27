@@ -11,6 +11,7 @@
 <p align="center">A free, open-source photo editor for macOS with Adobe Lightroom preset support.</p>
 
 <p align="center">
+  <a href="https://lightimage.hwo.workers.dev/en/">Project website</a> ·
   <a href="https://github.com/hwo63/LightImage/releases/latest">Download the latest release</a> ·
   <a href="#getting-started">Getting started</a> ·
   <a href="#comparison-with-lightroom-and-lightcraft">Feature comparison</a> ·

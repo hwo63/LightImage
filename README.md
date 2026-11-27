@@ -11,6 +11,7 @@
 <p align="center">Trình chỉnh ảnh miễn phí, mã nguồn mở cho macOS, hỗ trợ preset Adobe Lightroom.</p>
 
 <p align="center">
+  <a href="https://lightimage.hwo.workers.dev/?lang=vi">Trang giới thiệu</a> ·
   <a href="https://github.com/hwo63/LightImage/releases/latest">Tải bản mới nhất</a> ·
   <a href="#bắt-đầu-chỉnh-ảnh">Hướng dẫn sử dụng</a> ·
   <a href="#so-sánh-với-lightroom-và-lightcraft">So sánh tính năng</a> ·
