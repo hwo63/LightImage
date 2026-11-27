@@ -229,6 +229,9 @@ h3 { font-size: 1.28rem; font-weight: 720; line-height: 1.18; letter-spacing: -.
 .release-features { margin-bottom: clamp(24px, 4vw, 44px); }
 .release-feature { grid-column: span 6; }
 .release-feature h3 { font-size: clamp(1.35rem, 2.6vw, 1.9rem); }
+.feature-temperature { grid-column: 1 / -1; background: linear-gradient(110deg, #e9efff, #fff1e5); }
+.feature-temperature .eyebrow { margin: 0 0 10px; color: var(--accent); }
+.feature-temperature p { max-width: 76ch; }
 .feature-remove { background: var(--lavender); }
 .feature-lens { background: #eaf2ee; }
 .feature-color { background: #eee9ff; }
