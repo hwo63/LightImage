@@ -74,14 +74,20 @@ async function setLatestDownload() {
       if (difference < 0) return;
       if (difference > 0) break;
     }
-    const dmg = release.assets.find((asset) => asset?.state === 'uploaded' && typeof asset.name === 'string'
-      && asset.name.startsWith(`LightImage-${version}-`) && asset.name.endsWith('-macOS-arm64.dmg'));
-    if (!dmg) return;
+    const downloads = new Map();
+    for (const arch of ['arm64', 'x86_64']) {
+      const dmg = release.assets.find((asset) => asset?.state === 'uploaded' && typeof asset.name === 'string'
+        && asset.name.startsWith(`LightImage-${version}-`) && asset.name.endsWith(`-macOS-${arch}.dmg`));
+      if (!dmg) return;
+      const download = `https://github.com/hwo63/LightImage/releases/download/${tag}/${encodeURIComponent(dmg.name)}`;
+      if (dmg.browser_download_url !== download) return;
+      downloads.set(arch, download);
+    }
 
-    const download = `https://github.com/hwo63/LightImage/releases/download/${tag}/${encodeURIComponent(dmg.name)}`;
-    if (dmg.browser_download_url !== download) return;
-
-    for (const link of document.querySelectorAll('[data-latest-dmg]')) link.href = download;
+    for (const link of document.querySelectorAll('[data-latest-dmg]')) {
+      const download = downloads.get(link.dataset.latestDmg);
+      if (download) link.href = download;
+    }
     for (const label of versionLabels) label.textContent = version;
   } catch {
     // The HTML links still download the bundled page's release when the API is unavailable.
