@@ -18,7 +18,7 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-LightImage **26.0.7** có bộ cài cho **Mac Intel và Apple Silicon chạy macOS 14 trở lên**. Bản này sửa trình cập nhật trên Intel và giúp độ phủ ở tâm cọ khớp với giá trị **Độ đậm** khi chỉnh **Độ mềm**. [Xem bản phát hành 26.0.7](https://github.com/hwo63/LightImage/releases/tag/v26.0.7)
+LightImage **26.1.0** có bộ cài cho **Mac Intel và Apple Silicon chạy macOS 14 trở lên**. Bản này có trình cập nhật hỗ trợ tên gói Intel và giữ độ phủ ở tâm cọ theo mức **Độ đậm** khi chỉnh **Độ mềm**. [Xem bản phát hành 26.1.0](https://github.com/hwo63/LightImage/releases/tag/v26.1.0)
 
 Trong ** → Giới thiệu về máy Mac này**, xem tên chip hoặc bộ xử lý rồi chọn đúng tệp trong **Assets**.
 
