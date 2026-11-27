@@ -18,7 +18,7 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-LightImage **26.1.0** có bộ cài cho **Mac Intel và Apple Silicon chạy macOS 14 trở lên**. Bản này có trình cập nhật hỗ trợ tên gói Intel và giữ độ phủ ở tâm cọ theo mức **Độ đậm** khi chỉnh **Độ mềm**. [Xem bản phát hành 26.1.0](https://github.com/hwo63/LightImage/releases/tag/v26.1.0)
+LightImage **26.1.1** có bộ cài cho **Mac Intel và Apple Silicon chạy macOS 14 trở lên**. Bản này bổ sung giao diện tiếng Anh và cửa sổ **Cài đặt** để chọn ngôn ngữ, quản lý cập nhật và đặt mặc định khi xuất ảnh. [Xem bản phát hành 26.1.1](https://github.com/hwo63/LightImage/releases/tag/v26.1.1)
 
 Trong ** → Giới thiệu về máy Mac này**, xem tên chip hoặc bộ xử lý rồi chọn đúng tệp trong **Assets**.
 
@@ -57,6 +57,8 @@ Từ bản cài **26.0.2**, LightImage kiểm tra GitHub Releases khi mở ứng
 
 Từ **26.0.5**, chọn **LightImage → Kiểm tra cập nhật…** để kiểm tra ngay. LightImage sẽ báo khi gói mới đã tải xong, khi đang dùng bản mới nhất hoặc khi có lỗi. Trình cập nhật lấy phiên bản mới nhất từ đường dẫn phát hành công khai của GitHub và xác minh chữ ký gói tải về trước khi hiện nút cài đặt.
 
+Từ **26.1.1**, bạn cũng có thể kiểm tra hoặc bật/tắt kiểm tra tự động trong **Cài đặt → Cập nhật**.
+
 Nếu đang dùng **26.0.3** hoặc **26.0.4** và chưa thấy **Restart to Update**, hãy tải và cài bản mới nhất thủ công một lần. [Tải bộ cài trên GitHub](https://github.com/hwo63/LightImage/releases/latest)
 
 Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bản mới một lần. Mở ứng dụng từ **Applications** để LightImage có thể cập nhật tệp cài.
@@ -68,6 +70,14 @@ Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bả
 3. Chọn ảnh rồi bấm preset ở cột trái. Dùng **Cường độ preset** hoặc các thanh ở cột phải để tinh chỉnh. Hai tệp trong [Samples](Samples) là preset mẫu để thử nhập.
 4. Dùng **Trước / Sau** hoặc **Kéo vạch** để so sánh. Cuộn chuột để zoom và kéo ảnh để kiểm tra chi tiết. Hai bản xem trước giữ cùng mức zoom và vị trí.
 5. Bấm **Xuất ảnh** (⌘E), chọn định dạng, kích thước và nơi lưu. Có thể xuất một ảnh hoặc các ảnh trong bộ lọc hiện tại.
+
+## Cài đặt LightImage
+
+Từ **26.1.1**, mở **LightImage → Cài đặt…** (⌘,) hoặc bấm biểu tượng bánh răng trên thanh công cụ. Trong giao diện tiếng Anh, mục này có tên **Settings…**.
+
+- Chọn **Tiếng Việt** hoặc **English** để đổi ngôn ngữ giao diện. LightImage ghi nhớ lựa chọn giữa các lần mở.
+- Trong **Cập nhật**, xem phiên bản đang dùng, bấm **Kiểm tra cập nhật…** hoặc bật/tắt kiểm tra tự động. Khi có gói đã tải và xác minh, bấm **Restart to Update** lúc bạn sẵn sàng cài.
+- Trong **Xuất ảnh mặc định**, chọn định dạng, chất lượng JPEG, kích thước cạnh dài và việc hiện ảnh đã xuất trong Finder. Bạn vẫn có thể chọn thông số khác cho mỗi lần xuất.
 
 ## Tính năng
 
