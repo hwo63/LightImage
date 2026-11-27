@@ -4,6 +4,10 @@
 
 <h1 align="center">LightImage</h1>
 
+<p align="center">
+  <strong>Tiếng Việt</strong> · <a href="README.en.md">English</a>
+</p>
+
 <p align="center">Trình chỉnh ảnh miễn phí, mã nguồn mở cho macOS, hỗ trợ preset Adobe Lightroom.</p>
 
 <p align="center">
