@@ -206,31 +206,32 @@ enum LocalMaskRenderer {
             let feather = min(max((stroke.softness ?? maskFeather) / 100, 0), 1)
             let strength = min(max((stroke.strength ?? 100) / 100, 0), 1)
             guard strength > 0 else { continue }
+            let bands = feather > 0 ? (stroke.softness == nil ? 8 : 16) : 1
             let edge = stroke.edgeSelection
+            let needsLayer = edge != nil || bands > 1
+            if needsLayer { context.saveGState() }
             if let edge {
                 guard let image = edge.image else { return nil }
                 let b = edge.bounds
                 let rect = CGRect(x: b.minX * Double(width), y: b.minY * Double(height),
                                   width: b.width * Double(width), height: b.height * Double(height))
-                context.saveGState()
                 context.clip(to: rect, mask: image)
+            }
+            if needsLayer {
                 context.beginTransparencyLayer(auxiliaryInfo: nil)
+                // Inner bands replace coverage within this stroke. Composite
+                // the finished stroke once to avoid accumulating 8-bit rounding.
+                context.setBlendMode(.copy)
             }
             let color: CGFloat = stroke.erases ? 0 : 1
-            let bands = feather > 0 ? (stroke.softness == nil ? 8 : 16) : 1
             let tap = stroke.points.allSatisfy { $0 == first }
-            var previousOpacity = 0.0
             for band in 0..<bands {
                 let progress = Double(band) / Double(max(1, bands - 1))
                 let inner = stroke.softness == nil ? 0.84 : 1
                 let r = max(1, radius * (1 - progress * feather * inner))
                 let fraction = Double(band + 1) / Double(bands)
                 let ramp = stroke.softness == nil ? fraction : fraction * fraction * (3 - 2 * fraction)
-                let targetOpacity = strength * ramp
-                // Source-over bands add up to the requested opacity at
-                // the stroke center, regardless of the number of bands.
-                let alpha = (targetOpacity - previousOpacity) / (1 - previousOpacity)
-                previousOpacity = targetOpacity
+                let alpha = strength * ramp
                 context.setStrokeColor(gray: color, alpha: alpha)
                 context.setFillColor(gray: color, alpha: alpha)
                 context.setLineWidth(2 * r)
@@ -244,7 +245,7 @@ enum LocalMaskRenderer {
                     context.strokePath()
                 }
             }
-            if edge != nil {
+            if needsLayer {
                 context.endTransparencyLayer()
                 context.restoreGState()
             }

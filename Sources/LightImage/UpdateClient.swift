@@ -121,7 +121,7 @@ struct UpdateClient {
               manifest.version == version.description,
               manifest.archive.hasPrefix("LightImage-\(version)-"),
               manifest.archive.hasSuffix("-macOS-\(architecture).app.zip"),
-              manifest.archive.range(of: #"\ALightImage-[A-Za-z0-9.\-]+\.app\.zip\z"#, options: .regularExpression) != nil,
+              manifest.archive.range(of: #"\ALightImage-[A-Za-z0-9._\-]+\.app\.zip\z"#, options: .regularExpression) != nil,
               (1...Self.maximumArchiveBytes).contains(manifest.size) else {
             throw Failure.invalidManifest
         }
