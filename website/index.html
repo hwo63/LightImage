@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f6f4ff">
   <title>LightImage — Chỉnh ảnh trên macOS</title>
-  <meta name="description" content="LightImage 26.1.0 là ứng dụng chỉnh ảnh mã nguồn mở cho Mac Intel và Apple Silicon. Hỗ trợ preset Lightroom, chỉnh nhiệt độ màu RAW và xuất ảnh hàng loạt.">
+  <meta name="description" content="LightImage 26.1.1 là ứng dụng chỉnh ảnh mã nguồn mở cho Mac Intel và Apple Silicon, có giao diện Việt/Anh, Cài đặt mới và hỗ trợ preset Lightroom.">
   <link rel="canonical" href="https://lightimage.hwo.workers.dev/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="LightImage — Chỉnh ảnh trên macOS">
-  <meta property="og:description" content="LightImage 26.1.0 là ứng dụng chỉnh ảnh miễn phí, mã nguồn mở cho Mac Intel và Apple Silicon. Hỗ trợ preset Lightroom.">
+  <meta property="og:description" content="LightImage 26.1.1 bổ sung giao diện Tiếng Việt và English, kiểm tra cập nhật và tùy chọn xuất ảnh trong Cài đặt.">
   <meta property="og:url" content="https://lightimage.hwo.workers.dev/">
   <meta property="og:image" content="https://lightimage.hwo.workers.dev/assets/social.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="assets/icon.png" type="image/png">
-  <link rel="stylesheet" href="style.css?v=26.1.0">
-  <script src="script.js?v=26.1.0" defer></script>
+  <link rel="stylesheet" href="style.css?v=26.1.1">
+  <script src="script.js?v=26.1.1" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Bỏ qua điều hướng</a>
@@ -40,12 +40,12 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="wrap">
         <div class="hero-copy">
-          <p class="eyebrow">LightImage <span data-release-version>26.1.0</span> cho macOS</p>
+          <p class="eyebrow">LightImage <span data-release-version>26.1.1</span> cho macOS</p>
           <h1 id="hero-title">Chỉnh ảnh theo<br> <span>cách của bạn.</span></h1>
           <p class="hero-intro">Chỉnh ảnh RAW, áp dụng preset Lightroom hàng loạt và xóa vật thể bằng AI ngay trên Mac. Miễn phí và mã nguồn mở.</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.0/LightImage-26.1.0-2711.100819-macOS-arm64.dmg" data-latest-dmg="arm64">Tải DMG cho Apple Silicon</a>
-            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.0/LightImage-26.1.0-2711.100819-macOS-x86_64.dmg" data-latest-dmg="x86_64">Tải DMG cho Intel</a>
+            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.1/LightImage-26.1.1-2711.103808-macOS-arm64.dmg" data-latest-dmg="arm64">Tải DMG cho Apple Silicon</a>
+            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.1/LightImage-26.1.1-2711.103808-macOS-x86_64.dmg" data-latest-dmg="x86_64">Tải DMG cho Intel</a>
             <a class="button secondary" href="https://github.com/hwo63/LightImage">Xem mã nguồn</a>
           </div>
           <p class="compat">Apple Silicon và Intel · macOS 14 trở lên</p>
@@ -80,6 +80,14 @@
         <h2 id="features-title">Từ toàn ảnh đến từng chi tiết.</h2>
       </div>
       <div class="feature-grid release-features">
+        <article class="feature release-feature feature-language" data-reveal>
+          <h3>Giao diện Tiếng Việt và English</h3>
+          <p>Mở <strong>LightImage → Cài đặt…</strong> bằng <kbd>⌘,</kbd> hoặc bấm biểu tượng bánh răng. Chọn ngôn ngữ để đổi giao diện ngay. LightImage ghi nhớ lựa chọn khi mở lại.</p>
+        </article>
+        <article class="feature release-feature feature-settings" data-reveal>
+          <h3>Cài đặt trong ứng dụng</h3>
+          <p>Xem phiên bản đang dùng, kiểm tra cập nhật ngay hoặc bật/tắt kiểm tra tự động. Bạn cũng có thể đặt định dạng, chất lượng JPEG và kích thước xuất mặc định, cùng tùy chọn hiện ảnh đã xuất trong Finder.</p>
+        </article>
         <article class="feature release-feature feature-temperature" data-reveal>
           <h3>Chỉnh nhiệt độ màu</h3>
           <p>Trong <strong>Cân bằng trắng &amp; Màu</strong>, ảnh RAW chỉnh theo <strong>Kelvin</strong> và bắt đầu từ cân bằng trắng của máy ảnh. JPEG và TIFF dùng thang tương đối <strong>−100 đến +100</strong>.</p>
@@ -244,8 +252,8 @@
           <p>Xem tên chip hoặc bộ xử lý trong <strong> → Giới thiệu về máy Mac này</strong> rồi chọn đúng bộ cài.</p>
           <p>Mở DMG, kéo LightImage vào <strong>Applications</strong>, rồi mở ứng dụng từ đó. Nếu dùng ZIP, giải nén để lấy <code>LightImage.app</code>.</p>
           <div class="install-actions">
-            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.0/LightImage-26.1.0-2711.100819-macOS-arm64.dmg" data-latest-dmg="arm64">Tải DMG cho Apple Silicon</a>
-            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.0/LightImage-26.1.0-2711.100819-macOS-x86_64.dmg" data-latest-dmg="x86_64">Tải DMG cho Intel</a>
+            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.1/LightImage-26.1.1-2711.103808-macOS-arm64.dmg" data-latest-dmg="arm64">Tải DMG cho Apple Silicon</a>
+            <a class="button primary" href="https://github.com/hwo63/LightImage/releases/download/v26.1.1/LightImage-26.1.1-2711.103808-macOS-x86_64.dmg" data-latest-dmg="x86_64">Tải DMG cho Intel</a>
             <a class="text-link" href="https://github.com/hwo63/LightImage/releases/latest">Xem ghi chú phát hành</a>
           </div>
           <p class="small">Bản cài ký ad-hoc. Nếu macOS chặn mở, xem <a class="text-link" href="https://github.com/hwo63/LightImage/blob/main/README.md#mở-lần-đầu-nếu-macos-chặn-lightimage">hướng dẫn mở LightImage lần đầu</a>.</p>
@@ -265,7 +273,7 @@ open Package.swift</code></pre>
       <article class="install-card update-card" aria-labelledby="update-title" data-reveal>
         <h3 id="update-title">Restart to Update</h3>
         <p>Từ 26.0.2, LightImage tự kiểm tra và tải bản mới trong nền. Sau khi xác thực chữ ký, ứng dụng hiện <strong>Restart to Update</strong> ở góc dưới bên phải. Bấm nút để lưu, cài và mở lại. Bạn vẫn dùng bản hiện tại cho đến khi bấm.</p>
-        <p>Từ 26.0.5, chọn <strong>LightImage → Kiểm tra cập nhật…</strong> để tìm bản mới ngay.</p>
+        <p>Từ 26.1.1, mở <strong>Cài đặt → Cập nhật</strong> để kiểm tra ngay hoặc bật/tắt kiểm tra tự động. Bạn cũng có thể chọn <strong>LightImage → Kiểm tra cập nhật…</strong>.</p>
         <p class="small">Nếu bản 26.0.1, 26.0.3 hoặc 26.0.4 chưa hiện nút cập nhật, hãy tải và cài bản mới thủ công một lần.</p>
       </article>
     </section>
