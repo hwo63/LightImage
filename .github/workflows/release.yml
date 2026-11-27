@@ -15,12 +15,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  prepare:
     if: github.repository == 'hwo63/LightImage' && github.ref == 'refs/heads/main'
-    runs-on: macos-26
-    timeout-minutes: 30
-    permissions:
-      contents: write
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      previous: ${{ steps.version.outputs.previous }}
+      epoch: ${{ steps.version.outputs.epoch }}
+      publish: ${{ steps.version.outputs.publish }}
 
     steps:
       - name: Check out the release commit
@@ -36,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+          version=$(python3 -c 'import plistlib; print(plistlib.load(open("Resources/Info.plist", "rb"))["CFBundleShortVersionString"])')
           pattern='^[0-9]{2}\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
           if [[ ! "$version" =~ $pattern ]]; then
             echo "::error::CFBundleShortVersionString must be YY.major.patch."
@@ -67,12 +70,82 @@ jobs:
 
           {
             printf 'version=%s\ntag=%s\nprevious=%s\n' "$version" "$tag" "$previous"
+            printf 'epoch=%s\n' "$(git show -s --format=%ct "$GITHUB_SHA")"
             printf 'publish=true\n'
           } >> "$GITHUB_OUTPUT"
-          printf 'LIGHTIMAGE_BUILD_EPOCH=%s\n' "$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_ENV"
 
-      - name: Verify updater signing configuration
-        if: steps.version.outputs.publish == 'true'
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            arch: arm64
+          - runner: macos-26-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      LIGHTIMAGE_BUILD_EPOCH: ${{ needs.prepare.outputs.epoch }}
+      LIGHTIMAGE_UPDATE_PUBLIC_KEY: ${{ vars.LIGHTIMAGE_UPDATE_PUBLIC_KEY }}
+
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Test and package LightImage
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "$EXPECTED_ARCH"
+          test -n "$LIGHTIMAGE_UPDATE_PUBLIC_KEY"
+          ./scripts/test.sh
+          ./scripts/package-release.sh
+          for executable in LightImage LightImageInstaller; do
+            test "$(lipo -archs "dist/LightImage.app/Contents/MacOS/$executable")" = "$EXPECTED_ARCH"
+          done
+
+      - name: Save both installer formats
+        uses: actions/upload-artifact@v4
+        with:
+          name: LightImage-${{ matrix.arch }}
+          path: dist/releases/${{ needs.prepare.outputs.version }}/
+          if-no-files-found: error
+
+  release:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.publish == 'true'
+    runs-on: macos-26
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      PREVIOUS: ${{ needs.prepare.outputs.previous }}
+      LIGHTIMAGE_BUILD_EPOCH: ${{ needs.prepare.outputs.epoch }}
+
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download both architecture packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: LightImage-*
+          merge-multiple: true
+          path: dist/releases/${{ needs.prepare.outputs.version }}
+
+      - name: Create release notes and sign both updates
         shell: bash
         env:
           LIGHTIMAGE_UPDATE_PRIVATE_KEY: ${{ secrets.LIGHTIMAGE_UPDATE_PRIVATE_KEY }}
@@ -88,28 +161,14 @@ jobs:
             echo "::error::The configured update signing keys do not match."
             exit 1
           fi
-          printf 'LIGHTIMAGE_UPDATE_PUBLIC_KEY=%s\n' "$key" >> "$GITHUB_ENV"
-
-      - name: Build and package LightImage
-        if: steps.version.outputs.publish == 'true'
-        run: |
-          ./scripts/test.sh
-          ./scripts/package-release.sh
-
-      - name: Create release notes and sign the update
-        if: steps.version.outputs.publish == 'true'
-        shell: bash
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          PREVIOUS: ${{ steps.version.outputs.previous }}
-          LIGHTIMAGE_UPDATE_PRIVATE_KEY: ${{ secrets.LIGHTIMAGE_UPDATE_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
           release="dist/releases/$VERSION"
-          stamp=$(/usr/libexec/PlistBuddy -c 'Print :LightImageBuildStamp' dist/LightImage.app/Contents/Info.plist)
-          arch=$(uname -m)
-          name="LightImage-$VERSION-$stamp-macOS-$arch"
-          swift scripts/sign-update.swift "$VERSION" "$arch" "$release/$name.app.zip" "$release"
+          stamp=$(TZ=Asia/Ho_Chi_Minh date -r "$LIGHTIMAGE_BUILD_EPOCH" '+%d%m.%H%M%S')
+          for arch in arm64 x86_64; do
+            name="LightImage-$VERSION-$stamp-macOS-$arch"
+            test -s "$release/$name.dmg"
+            swift scripts/sign-update.swift "$VERSION" "$arch" "$release/$name.app.zip" "$release"
+          done
+          printf 'BUILD_STAMP=%s\n' "$stamp" >> "$GITHUB_ENV"
 
           range=("$GITHUB_SHA")
           if [[ -n "$PREVIOUS" ]]; then range=("v$PREVIOUS..$GITHUB_SHA"); fi
@@ -121,27 +180,21 @@ jobs:
               printf '\n[Xem toàn bộ thay đổi](https://github.com/%s/compare/v%s...v%s)\n' "$GITHUB_REPOSITORY" "$PREVIOUS" "$VERSION"
             fi
             printf '\n### Cài đặt\n\n'
-            printf 'Bản này dành cho Mac Apple Silicon chạy macOS 14 trở lên. Mở DMG và kéo LightImage vào Applications, hoặc giải nén tệp .app.zip.\n\n'
-            if [[ "$VERSION" == 26.0.2 ]]; then
-              printf 'Bản 26.0.1 tải từ GitHub cần được cập nhật thủ công một lần. Từ bản này, LightImage có thể tải bản mới và hiện nút **Restart to Update** trong ứng dụng.\n\n'
-            fi
-            printf 'Bản cài ký ad-hoc. Nếu macOS chặn mở bản tải về, xem [hướng dẫn build bằng Xcode](https://github.com/%s#build-từ-mã-nguồn-bằng-xcode).\n' "$GITHUB_REPOSITORY"
+            printf 'Cần macOS 14 trở lên. Chọn tệp có hậu tố phù hợp với máy.\n\n'
+            printf '%s\n' '- **Apple Silicon** — chọn `macOS-arm64.dmg` hoặc `macOS-arm64.app.zip`.'
+            printf '%s\n' '- **Intel** — chọn `macOS-x86_64.dmg` hoặc `macOS-x86_64.app.zip`.'
+            printf '\nMở DMG và kéo LightImage vào Applications, hoặc giải nén ZIP rồi chuyển ứng dụng vào Applications.\n\n'
+            printf 'Bản cài ký ad-hoc. Nếu macOS chặn mở bản tải về, xem [hướng dẫn mở LightImage lần đầu](https://github.com/%s#mở-lần-đầu-nếu-macos-chặn-lightimage).\n' "$GITHUB_REPOSITORY"
           } > "$release/Release.md"
 
       - name: Publish GitHub Release and assets
-        if: steps.version.outputs.publish == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
           release="dist/releases/$VERSION"
-          stamp=$(/usr/libexec/PlistBuddy -c 'Print :LightImageBuildStamp' dist/LightImage.app/Contents/Info.plist)
-          arch=$(uname -m)
-          name="LightImage-$VERSION-$stamp-macOS-$arch"
-          title="LightImage $VERSION (build $stamp)"
+          title="LightImage $VERSION (build $BUILD_STAMP)"
           draft=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
             --jq ".[] | select(.tag_name == \"$TAG\") | [.draft, .target_commitish] | @tsv")
           if [[ -z "$draft" ]]; then
@@ -150,7 +203,11 @@ jobs:
             echo "::error::A release with this tag already exists outside this build."
             exit 1
           fi
-          gh release upload "$TAG" --clobber \
-            "$release/$name.dmg" "$release/$name.app.zip" "$release/Release.md" \
-            "$release/LightImage-update-$arch.json" "$release/LightImage-update-$arch.sig"
+          assets=("$release/Release.md")
+          for arch in arm64 x86_64; do
+            name="LightImage-$VERSION-$BUILD_STAMP-macOS-$arch"
+            assets+=("$release/$name.dmg" "$release/$name.app.zip"
+                     "$release/LightImage-update-$arch.json" "$release/LightImage-update-$arch.sig")
+          done
+          gh release upload "$TAG" --clobber "${assets[@]}"
           gh release edit "$TAG" --draft=false --prerelease=false --latest --title "$title" --notes-file "$release/Release.md"

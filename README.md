@@ -18,7 +18,14 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.6** thêm thanh **Nhiệt độ màu** và **Sắc xanh / hồng** với ô nhập số và nút đặt lại cân bằng trắng. [Xem bản phát hành 26.0.6](https://github.com/hwo63/LightImage/releases/tag/v26.0.6)
+LightImage **26.0.7** có bộ cài cho **Mac Intel và Apple Silicon chạy macOS 14 trở lên**. Bản này sửa trình cập nhật trên Intel và giúp độ phủ ở tâm cọ khớp với giá trị **Độ đậm** khi chỉnh **Độ mềm**. [Xem bản phát hành 26.0.7](https://github.com/hwo63/LightImage/releases/tag/v26.0.7)
+
+Trong ** → Giới thiệu về máy Mac này**, xem tên chip hoặc bộ xử lý rồi chọn đúng tệp trong **Assets**.
+
+| Máy Mac | Bộ cài DMG | Bộ cài ZIP |
+| --- | --- | --- |
+| Apple Silicon (chip Apple M) | `macOS-arm64.dmg` | `macOS-arm64.app.zip` |
+| Intel | `macOS-x86_64.dmg` | `macOS-x86_64.app.zip` |
 
 ### Cài bằng DMG
 
@@ -163,7 +170,7 @@ Các script tạo bản dựng theo kiến trúc của Mac đang build. Số phi
 
 ### Phát hành bản mới trên GitHub
 
-Workflow trên `hwo63/LightImage` chạy khi `Resources/Info.plist` thay đổi trên `main`. Tăng `CFBundleShortVersionString` theo mẫu `YY.major.patch` rồi đưa commit lên `main`. GitHub Actions kiểm thử và đóng gói `.app.zip` cùng `.dmg` cho Apple Silicon. Nó cũng tạo `Release.md` từ các commit kể từ tag phát hành trước, đính kèm file vào release và dùng chính nội dung đó làm ghi chú phát hành. Có thể chạy lại workflow **Release LightImage for macOS** từ tab **Actions**.
+Workflow trên `hwo63/LightImage` chạy khi `Resources/Info.plist` thay đổi trên `main`. Tăng `CFBundleShortVersionString` theo mẫu `YY.major.patch` rồi đưa commit lên `main`. GitHub Actions kiểm thử và đóng gói `.app.zip` cùng `.dmg` trên runner Apple Silicon và Intel. Khi cả hai bộ cài sẵn sàng, workflow ký từng gói cập nhật, tạo `Release.md` từ các commit kể từ tag trước và phát hành chung trên GitHub. Có thể chạy lại workflow **Release LightImage for macOS** từ tab **Actions**.
 
 Thiết lập khóa ký một lần trước lần phát hành đầu tiên dùng workflow này. Chạy lệnh dưới đây tại thư mục repo. Lệnh lưu khóa riêng tư vào tệp chỉ tài khoản hiện tại đọc được và in khóa công khai.
 
