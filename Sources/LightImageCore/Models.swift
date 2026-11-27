@@ -81,12 +81,13 @@ public struct Adjustments: Codable, Equatable, Sendable {
         set { values[key] = newValue }
     }
     public var isEdited: Bool {
-        hasPortraitEdits || (trongTreo3Calibration ?? 0) > 0 || values.contains { !PresetParameters.isNeutral($0.key, value: $0.value, in: self) } ||
+        hasPortraitEdits || (trongTreo3Calibration ?? 0) > 0 || values["Tint"] != nil ||
+        values.contains { !PresetParameters.isNeutral($0.key, value: $0.value, in: self) } ||
         objectRepairs?.isEmpty == false ||
         !curves.isEmpty || monochrome || rotation % 4 != 0 || cropAspect != 0 || cropScale != 1 ||
         flipHorizontal == true || flipVertical == true || (localMasks?.contains(where: \.isActive) ?? false)
     }
-    public mutating func apply(_ preset: PhotoPreset, amount: Double = 1) {
+    public mutating func apply(_ preset: PhotoPreset, amount: Double = 1, rawWhiteBalance: RawWhiteBalance? = nil) {
         let strength = min(max(amount, 0), 1)
         guard strength > 0 else { return }
         let oldCalibration = trongTreo3Calibration ?? 0
@@ -105,7 +106,12 @@ public struct Adjustments: Codable, Equatable, Sendable {
             values.removeValue(forKey: "AutoTone")
         }
         for (key, value) in preset.settings.values {
-            let baseline = key == "Temperature" && self[key] == 0 ? 6500 : self[key]
+            let baseline: Double
+            switch key {
+            case "Temperature" where self[key] <= 0: baseline = rawWhiteBalance?.temperature ?? 6500
+            case "Tint" where values[key] == nil: baseline = rawWhiteBalance?.tint ?? 0
+            default: baseline = self[key]
+            }
             if key == "AutoTone" { self[key] = value }
             else if PresetParameters.circular.contains(key) {
                 let distance = (value - baseline + 540).truncatingRemainder(dividingBy: 360) - 180

@@ -13,6 +13,10 @@ public struct ObjectRepair: Codable, Equatable, Sendable {
     }
 
     public static func composite(_ repairs: [Self], over source: CIImage) throws -> CIImage {
+        try composite(repairs, over: source, adaptPatch: nil)
+    }
+
+    static func composite(_ repairs: [Self], over source: CIImage, adaptPatch: ((CIImage) -> CIImage)?) throws -> CIImage {
         try repairs.reduce(source) { image, repair in
             guard let patch = CIImage(data: repair.png), patch.extent.width > 0, patch.extent.height > 0,
                   repair.region.width > 0, repair.region.height > 0, !repair.region.isInfinite,
@@ -25,7 +29,7 @@ public struct ObjectRepair: Codable, Equatable, Sendable {
             let transform = CGAffineTransform(a: scaleX, b: 0, c: 0, d: scaleY,
                 tx: frame.minX + repair.region.minX * frame.width - patch.extent.minX * scaleX,
                 ty: frame.minY + repair.region.minY * frame.height - patch.extent.minY * scaleY)
-            return patch.transformed(by: transform).composited(over: image).cropped(to: frame)
+            return (adaptPatch?(patch) ?? patch).transformed(by: transform).composited(over: image).cropped(to: frame)
         }
     }
 }

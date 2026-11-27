@@ -21,7 +21,7 @@ let directory = URL(fileURLWithPath: args[3]); try FileManager.default.createDir
 if args.last == "full" {
     try engine.export(url: input, adjustments: settings, destination: directory.appendingPathComponent(args[4]+".jpg"), format: "jpeg")
 } else {
-    let source = try engine.load(url: input, maxDimension: 960)
+    let source = try engine.loadSource(url: input, maxDimension: 960)
     let groups: [(String, (String) -> Bool)] = [
         ("all", { _ in false }), ("calibration", { ["RedHue","GreenHue","BlueHue","RedSaturation","GreenSaturation","BlueSaturation"].contains($0) }),
         ("tone", { ["Shadows2012","Highlights2012","Blacks2012","Whites2012"].contains($0) }),

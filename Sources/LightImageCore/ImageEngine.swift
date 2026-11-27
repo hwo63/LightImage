@@ -4,7 +4,26 @@ import ImageIO
 import UniformTypeIdentifiers
 import Accelerate
 
+public struct RawWhiteBalance: Equatable, Sendable {
+    public static let temperatureRange = 2000.0...50000.0
+    public static let tintRange = -150.0...150.0
+    public let temperature: Double
+    public let tint: Double
+}
+
 public final class ImageEngine: @unchecked Sendable {
+    public struct Source {
+        public let image: CIImage
+        public var rawWhiteBalance: RawWhiteBalance? { raw?.whiteBalance }
+        fileprivate let raw: RawSource?
+    }
+
+    fileprivate struct RawSource {
+        let url: URL
+        let maxDimension: CGFloat?
+        let whiteBalance: RawWhiteBalance
+    }
+
     private let cubeCache = NSCache<NSData, NSData>()
     private final class CachedPortrait {
         let analysis: PortraitAnalysis
@@ -23,9 +42,17 @@ public final class ImageEngine: @unchecked Sendable {
         context = CIContext(options: [.workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, .cacheIntermediates: false])
     }
     public func load(url: URL, maxDimension: CGFloat? = nil) throws -> CIImage {
+        try loadSource(url: url, maxDimension: maxDimension).image
+    }
+    public func loadSource(url: URL, maxDimension: CGFloat? = nil) throws -> Source {
         var image: CIImage?
+        var raw: RawSource?
         if Self.rawExtensions.contains(url.pathExtension.lowercased()) {
-            image = CIRAWFilter(imageURL: url)?.outputImage
+            if let filter = CIRAWFilter(imageURL: url), let output = filter.outputImage {
+                image = output
+                raw = RawSource(url: url, maxDimension: maxDimension,
+                                whiteBalance: RawWhiteBalance(temperature: Double(filter.neutralTemperature), tint: Double(filter.neutralTint)))
+            }
         } else if let maxDimension,
                   let source = CGImageSourceCreateWithURL(url as CFURL, nil),
                   let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
@@ -45,8 +72,7 @@ public final class ImageEngine: @unchecked Sendable {
             originalLongEdge = max(w,h)
         }
         if let maxDimension { image = resized(image, maxDimension: maxDimension) }
-        image = image.settingProperties(["LightImageOriginalLongEdge": originalLongEdge])
-        return image
+        return Source(image: image.settingProperties(["LightImageOriginalLongEdge": originalLongEdge]), raw: raw)
     }
     public func normalized(_ image: CIImage) -> CIImage {
         image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
@@ -65,9 +91,47 @@ public final class ImageEngine: @unchecked Sendable {
     }
     public func render(_ source: CIImage, adjustments a: Adjustments, portrait: PortraitAnalysis? = nil,
                        unframed: Bool = false) throws -> CIImage {
+        try render(source, adjustments: a, portrait: portrait, unframed: unframed, nativeWhiteBalance: false)
+    }
+
+    public func render(_ source: Source, adjustments a: Adjustments, portrait: PortraitAnalysis? = nil,
+                       unframed: Bool = false) throws -> CIImage {
+        var image = source.image
+        var adaptPatch: ((CIImage) -> CIImage)?
+        if let raw = source.raw {
+            let camera = raw.whiteBalance
+            let temperature = a["Temperature"] > 0 ? a["Temperature"] : camera.temperature
+            let tint = a.values["Tint"] ?? camera.tint
+            if temperature != camera.temperature || tint != camera.tint {
+                guard let filter = CIRAWFilter(imageURL: raw.url) else { throw LightImageError.unreadableImage(raw.url.lastPathComponent) }
+                filter.neutralTemperature = Float(min(max(temperature, RawWhiteBalance.temperatureRange.lowerBound), RawWhiteBalance.temperatureRange.upperBound))
+                filter.neutralTint = Float(min(max(tint, RawWhiteBalance.tintRange.lowerBound), RawWhiteBalance.tintRange.upperBound))
+                guard let decoded = filter.outputImage else { throw LightImageError.unreadableImage(raw.url.lastPathComponent) }
+                image = normalized(decoded)
+                if let maxDimension = raw.maxDimension { image = resized(image, maxDimension: maxDimension) }
+                image = image.settingProperties(source.image.properties)
+                if a.objectRepairs?.isEmpty == false {
+                    // Filled patches are stored as rendered pixels in the camera's original balance.
+                    let neutral = CIVector(x: CGFloat(filter.neutralTemperature), y: CGFloat(filter.neutralTint))
+                    let original = CIVector(x: camera.temperature, y: camera.tint)
+                    adaptPatch = { patch in
+                        patch.applyingFilter("CITemperatureAndTint", parameters: [
+                            "inputNeutral": neutral, "inputTargetNeutral": original
+                        ])
+                    }
+                }
+            }
+        }
+        let analysis = try portrait ?? (a.needsPortraitAnalysis ? analyzePortrait(source.image) : nil)
+        return try render(image, adjustments: a, portrait: analysis, unframed: unframed,
+                          nativeWhiteBalance: source.raw != nil, adaptPatch: adaptPatch)
+    }
+
+    private func render(_ source: CIImage, adjustments a: Adjustments, portrait: PortraitAnalysis?,
+                        unframed: Bool, nativeWhiteBalance: Bool, adaptPatch: ((CIImage) -> CIImage)? = nil) throws -> CIImage {
         let originalLongEdge = source.properties["LightImageOriginalLongEdge"] as? Double ?? max(source.extent.width,source.extent.height)
         let pixelScale = max(source.extent.width,source.extent.height) / max(1,originalLongEdge)
-        let repaired = try ObjectRepair.composite(a.objectRepairs ?? [], over: source)
+        let repaired = try ObjectRepair.composite(a.objectRepairs ?? [], over: source, adaptPatch: adaptPatch)
         var image = try AdvancedEffects.reduceNoise(repaired, a, pixelScale: pixelScale)
         image = try PhotoEnhancement.restore(image, amount: a[PhotoEnhancement.restore.key], engine: self)
         image = try PhotoEnhancement.blurBackground(image, foreground: a.lensBlurSubject, amount: a[PhotoEnhancement.lensBlur.key])
@@ -75,12 +139,13 @@ public final class ImageEngine: @unchecked Sendable {
             let analysis = try portrait ?? (a.needsPortraitAnalysis ? analyzePortrait(source) : PortraitAnalysis(subjects: []))
             image = try PortraitEffects.apply(image, adjustments: a, analysis: analysis)
         }
-        if a["Temperature"] != 0 || a["Tint"] != 0 || a["IncrementalTemperature"] != 0 || a["IncrementalTint"] != 0 {
-            // JPEG relative WB sliders are not Kelvin / Core Image tint units.
-            // Use a relative temperature scale, separate from absolute RAW WB.
-            let temp = a["Temperature"] == 0 ? 6500 * pow(2, a["IncrementalTemperature"] / 200) : a["Temperature"]
+        let temperature = nativeWhiteBalance ? 0 : a["Temperature"]
+        let tint = nativeWhiteBalance ? 0 : a["Tint"]
+        if temperature != 0 || tint != 0 || a["IncrementalTemperature"] != 0 || a["IncrementalTint"] != 0 {
+            // Preserve the relative WB used by existing rendered-image presets.
+            let temp = (temperature > 0 ? temperature : 6500) * pow(2, a["IncrementalTemperature"] / 200)
             image = image.applyingFilter("CITemperatureAndTint", parameters: [
-                "inputNeutral": CIVector(x: temp, y: a["Tint"] + a["IncrementalTint"] * 0.5),
+                "inputNeutral": CIVector(x: temp, y: tint + a["IncrementalTint"] * 0.5),
                 "inputTargetNeutral": CIVector(x: 6500, y: 0)
             ])
         }
@@ -159,7 +224,7 @@ public final class ImageEngine: @unchecked Sendable {
     public func export(url: URL, adjustments: Adjustments, destination: URL, format: String, quality: Double = 0.95, maxDimension: CGFloat? = nil) throws {
         // Run the detector on the same oriented input used for the interactive preview.
         let portrait = try adjustments.needsPortraitAnalysis ? analyzePortrait(load(url: url, maxDimension: 2400)) : nil
-        var result = try render(load(url: url), adjustments: adjustments, portrait: portrait)
+        var result = try render(loadSource(url: url), adjustments: adjustments, portrait: portrait)
         if let maxDimension, maxDimension > 0 { result = resized(result, maxDimension: maxDimension) }
         let type = format == "png" ? UTType.png : format == "tiff" ? UTType.tiff : UTType.jpeg
         // Render to a temporary sibling, then atomically replace the selected destination.

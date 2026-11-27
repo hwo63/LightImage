@@ -39,7 +39,7 @@ enum ExportScope: Hashable {
 
 private final class PreviewCache: @unchecked Sendable {
     var path: String?
-    var source: CIImage?
+    var source: ImageEngine.Source?
     var portraits: PortraitPreview?
     var analysisFailed = false
 }
@@ -63,6 +63,7 @@ private struct MaskPreviewRequest: Sendable {
     @Published var edits = Adjustments()
     @Published var preview: NSImage?
     @Published var original: NSImage?
+    @Published private(set) var rawWhiteBalance: RawWhiteBalance?
     @Published var thumbnails: [UUID: NSImage] = [:]
     @Published var histogram: [[Double]] = []
     @Published var isRendering = false
@@ -185,6 +186,7 @@ private struct MaskPreviewRequest: Sendable {
         endGesture("Điều chỉnh")
         guard let photo = catalog.photos.first(where: { $0.id == id }) else { return }
         selectedID = id; edits = photo.adjustments; selectedPreset = nil; presetBase = nil
+        rawWhiteBalance = nil
         preview = nil; original = nil; histogram = []; sourceSize = ""; compare = false; splitCompare = false
         resetMaskPreview()
         portraitPreview = nil; portraitAnalysisFailed = false
@@ -516,7 +518,7 @@ private struct MaskPreviewRequest: Sendable {
         guard let preset = activePreset, let base = presetBase else { return }
         beginGesture(); presetStrength = value
         let current = edits
-        edits = base; edits.apply(preset, amount: value / 100)
+        edits = base; edits.apply(preset, amount: value / 100, rawWhiteBalance: rawWhiteBalance)
         edits.keepPortrait(from: current)
         edits.keepLocalEdits(from: current)
         edits.flipHorizontal = current.flipHorizontal
@@ -600,7 +602,7 @@ private struct MaskPreviewRequest: Sendable {
         guard let selectedID else { return }
         catalog.photos.removeAll { $0.id == selectedID }; thumbnails[selectedID] = nil
         batchSelection.remove(selectedID)
-        self.selectedID = nil; preview = nil; original = nil; edits = Adjustments(); generation = UUID()
+        self.selectedID = nil; preview = nil; original = nil; rawWhiteBalance = nil; edits = Adjustments(); generation = UUID()
         resetMaskPreview()
         portraitPreview = nil; portraitAnalysisFailed = false
         isRendering = false; histogram = []; sourceSize = ""; history[selectedID] = nil; redoHistory[selectedID] = nil
@@ -647,10 +649,10 @@ private struct MaskPreviewRequest: Sendable {
             do {
                 let source = try self.previewSource(at: path)
                 if showPortraits, self.cache.portraits == nil {
-                    let analysis = try? self.engine.analyzePortrait(source)
+                    let analysis = try? self.engine.analyzePortrait(source.image)
                     let subjects = analysis?.subjects ?? []
                     self.cache.analysisFailed = analysis == nil
-                    let cg = try self.engine.cgImage(source)
+                    let cg = try self.engine.cgImage(source.image)
                     let thumbnails = subjects.map { subject -> NSImage? in
                         let rect = subject.face
                         let pixels = CGRect(x: rect.minX * CGFloat(cg.width), y: (1 - rect.maxY) * CGFloat(cg.height),
@@ -666,9 +668,9 @@ private struct MaskPreviewRequest: Sendable {
                 let rendered = try self.engine.render(source, adjustments: snapshot)
                 let cg = try self.engine.cgImage(rendered)
                 let thumbnail = try self.engine.cgImage(self.engine.resized(rendered, maxDimension: 280))
-                let before = try self.engine.cgImage(self.engine.geometry(source, adjustments: snapshot))
+                let before = try self.engine.cgImage(self.engine.geometry(source.image, adjustments: snapshot))
                 let histogram = self.engine.histogram(cg)
-                var dimensions = "\(Int(source.extent.width)) × \(Int(source.extent.height))"
+                var dimensions = "\(Int(source.image.extent.width)) × \(Int(source.image.extent.height))"
                 if let imageSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
                    let props = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [String: Any],
                    let w = props[kCGImagePropertyPixelWidth as String] as? Int, let h = props[kCGImagePropertyPixelHeight as String] as? Int { dimensions = "\(w) × \(h)" }
@@ -676,6 +678,7 @@ private struct MaskPreviewRequest: Sendable {
                     guard self.generation == ticket else { return }
                     self.preview = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
                     self.original = NSImage(cgImage: before, size: NSSize(width: before.width, height: before.height))
+                    if self.rawWhiteBalance != source.rawWhiteBalance { self.rawWhiteBalance = source.rawWhiteBalance }
                     self.histogram = histogram; self.sourceSize = dimensions; self.isRendering = false
                     if showPortraits {
                         self.portraitPreview = portraits
@@ -711,7 +714,7 @@ private struct MaskPreviewRequest: Sendable {
             let result = Result {
                 let source = try self.previewSource(at: request.path)
                 let image = try self.engine.render(source, adjustments: request.adjustments, unframed: true)
-                return (source, try self.engine.cgImage(image))
+                return (source.image, try self.engine.cgImage(image))
             }
             DispatchQueue.main.async {
                 self.isRenderingMaskPreview = false
@@ -732,9 +735,9 @@ private struct MaskPreviewRequest: Sendable {
     }
 
     // Accessed on renderQueue by both preview paths.
-    private nonisolated func previewSource(at path: String) throws -> CIImage {
+    private nonisolated func previewSource(at path: String) throws -> ImageEngine.Source {
         if cache.path == path, let source = cache.source { return source }
-        let source = try engine.load(url: URL(fileURLWithPath: path), maxDimension: 2400)
+        let source = try engine.loadSource(url: URL(fileURLWithPath: path), maxDimension: 2400)
         cache.source = source
         cache.path = path
         cache.portraits = nil
@@ -748,7 +751,7 @@ private struct MaskPreviewRequest: Sendable {
             for photo in photos {
                 autoreleasepool {
                     let size: CGFloat = photo.adjustments.hasPortraitEdits ? 2400 : 280
-                    guard let image = try? renderer.load(url: URL(fileURLWithPath: photo.path), maxDimension: size),
+                    guard let image = try? renderer.loadSource(url: URL(fileURLWithPath: photo.path), maxDimension: size),
                           let rendered = try? renderer.render(image, adjustments: photo.adjustments),
                           let cg = try? renderer.cgImage(renderer.resized(rendered, maxDimension: 280)) else { return }
                     DispatchQueue.main.async {

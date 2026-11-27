@@ -93,13 +93,7 @@ struct InspectorView: View {
                         AdjustmentSlider(title: "Điểm đen", key: "Blacks2012")
                     }
                     section("Cân bằng trắng & Màu", icon: "thermometer.medium", expanded: $colorExpanded) {
-                        if model.edits["Temperature"] > 0 {
-                            AdjustmentSlider(title: "Nhiệt độ preset · K", key: "Temperature", range: 2000...50000)
-                            Button("Trở về cân bằng trắng ảnh gốc") { model.change("Cân bằng trắng gốc") { $0.values.removeValue(forKey: "Temperature"); $0.values.removeValue(forKey: "Tint") } }.font(.system(size: 9)).foregroundStyle(Theme.accent)
-                            AdjustmentSlider(title: "Tint preset", key: "Tint", range: -150...150)
-                        }
-                        AdjustmentSlider(title: "Nhiệt độ tương đối", key: "IncrementalTemperature", gradient: [.blue, .orange])
-                        AdjustmentSlider(title: "Sắc xanh / hồng", key: "IncrementalTint", gradient: [.green, .pink])
+                        WhiteBalanceControls().disabled(model.preview == nil)
                         AdjustmentSlider(title: "Độ rực màu", key: "Vibrance")
                         AdjustmentSlider(title: "Độ bão hòa", key: "Saturation")
                     }
@@ -232,6 +226,106 @@ struct InspectorView: View {
             HStack { Text(name); Spacer(); Text("\(Int(model.edits[keyPath: key] * 100))%") }.font(.system(size: 10)).foregroundStyle(Theme.muted)
             Slider(value: Binding(get: { model.edits[keyPath: key] }, set: { model.updateGeometry(key, $0) }), in: range, onEditingChanged: { if !$0 { model.endGesture(name) } }).controlSize(.mini)
         }
+    }
+}
+
+private struct WhiteBalanceControls: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                Text(hasWhiteBalanceEdits ? "Tùy chỉnh" : "Theo ảnh gốc").foregroundStyle(Theme.muted)
+                Spacer()
+                Button("Đặt lại") {
+                    model.change("Đặt lại cân bằng trắng") { edits in
+                        for key in ["Temperature", "Tint", "IncrementalTemperature", "IncrementalTint"] {
+                            edits.values.removeValue(forKey: key)
+                        }
+                    }
+                }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(!hasWhiteBalanceEdits)
+            }.font(.system(size: 10))
+            if let camera = model.rawWhiteBalance {
+                WhiteBalanceSlider(title: "Nhiệt độ màu", key: "Temperature", range: RawWhiteBalance.temperatureRange,
+                                   original: camera.temperature, kelvin: true, gradient: [.blue, .orange])
+                WhiteBalanceSlider(title: "Sắc xanh / hồng", key: "Tint", range: RawWhiteBalance.tintRange,
+                                   original: camera.tint, gradient: [.green, .pink])
+                if model.edits.values["IncrementalTemperature"] != nil || model.edits.values["IncrementalTint"] != nil {
+                    AdjustmentSlider(title: "Nhiệt độ tương đối của preset", key: "IncrementalTemperature")
+                    AdjustmentSlider(title: "Sắc xanh / hồng tương đối", key: "IncrementalTint")
+                }
+            } else {
+                WhiteBalanceSlider(title: "Nhiệt độ màu", key: "IncrementalTemperature", range: -100...100,
+                                   gradient: [.blue, .orange])
+                WhiteBalanceSlider(title: "Sắc xanh / hồng", key: "IncrementalTint", range: -100...100,
+                                   gradient: [.green, .pink])
+                if model.edits["Temperature"] > 0 {
+                    AdjustmentSlider(title: "Nhiệt độ Kelvin của preset", key: "Temperature", range: RawWhiteBalance.temperatureRange)
+                }
+                if model.edits["Tint"] != 0 {
+                    AdjustmentSlider(title: "Sắc xanh / hồng của preset", key: "Tint", range: RawWhiteBalance.tintRange)
+                }
+            }
+        }
+    }
+
+    private var hasWhiteBalanceEdits: Bool {
+        model.edits["Temperature"] > 0 || model.edits["IncrementalTemperature"] != 0 ||
+        model.edits["IncrementalTint"] != 0 || (model.rawWhiteBalance != nil ? model.edits.values["Tint"] != nil : model.edits["Tint"] != 0)
+    }
+}
+
+private struct WhiteBalanceSlider: View {
+    @EnvironmentObject var model: AppModel
+    let title: String
+    let key: String
+    let range: ClosedRange<Double>
+    var original = 0.0
+    var kelvin = false
+    let gradient: [Color]
+
+    private var value: Double {
+        let stored = model.edits.values[key]
+        return clamped(kelvin && stored == 0 ? original : stored ?? original)
+    }
+
+    private var sliderValue: Binding<Double> {
+        let minimum = kelvin ? log(range.lowerBound) : range.lowerBound
+        let span = (kelvin ? log(range.upperBound) : range.upperBound) - minimum
+        return Binding(get: { ((kelvin ? log(value) : value) - minimum) / span }, set: { position in
+            let scaled = minimum + position * span
+            let updated = clamped((kelvin ? exp(scaled) : scaled).rounded())
+            if value != updated { model.update(key, updated) }
+        })
+    }
+
+    var body: some View {
+        VStack(spacing: 5) {
+            HStack(spacing: 5) {
+                Text(title).foregroundStyle(Color.white.opacity(0.62))
+                Spacer()
+                TextField(title, value: Binding(get: { value.rounded() }, set: { number in
+                    guard number.isFinite else { return }
+                    let updated = clamped(number.rounded())
+                    if value.rounded() != updated { model.change(title) { $0[key] = updated } }
+                }), format: .number.grouping(.never))
+                .labelsHidden().multilineTextAlignment(.trailing).frame(width: kelvin ? 58 : 43)
+                if kelvin { Text("K").foregroundStyle(Theme.muted) }
+            }.font(.system(size: 10))
+            Slider(value: sliderValue, in: 0...1, onEditingChanged: { editing in
+                if editing { model.beginGesture() } else { model.endGesture(title) }
+            })
+            .controlSize(.mini).accessibilityLabel(title)
+            .accessibilityValue(kelvin ? "\(Int(value.rounded())) K" : "\(Int(value.rounded()))")
+            .background {
+                LinearGradient(colors: gradient.map { $0.opacity(0.4) }, startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 2).padding(.horizontal, 3)
+            }
+        }
+    }
+
+    private func clamped(_ number: Double) -> Double {
+        min(max(number, range.lowerBound), range.upperBound)
     }
 }
 

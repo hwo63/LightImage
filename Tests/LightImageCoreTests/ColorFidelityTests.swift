@@ -108,6 +108,9 @@ final class ColorFidelityTests: XCTestCase {
             engine.context.render(rendered, toBitmap: &data, rowBytes: 16, bounds: CGRect(x: 0,y: 0,width: 1,height: 1), format: .RGBAf, colorSpace: engine.colorSpace)
             return data
         }
+        let neutral = try sample(Adjustments())
+        XCTAssertEqual(neutral[0], neutral[1], accuracy: 0.0001)
+        XCTAssertEqual(neutral[1], neutral[2], accuracy: 0.0001)
         var a = Adjustments(); a["IncrementalTemperature"] = 30
         let warm = try sample(a)
         a["IncrementalTemperature"] = -30
@@ -118,5 +121,43 @@ final class ColorFidelityTests: XCTestCase {
         a["IncrementalTint"] = -30
         let green = try sample(a)
         XCTAssertGreaterThan((magenta[0] + magenta[2]) / magenta[1], (green[0] + green[2]) / green[1])
+    }
+
+    func testRawWhiteBalanceUsesCameraNeutralAndDecodesAtSelectedKelvin() throws {
+        guard let path = ProcessInfo.processInfo.environment["LIGHTIMAGE_RAW_FIXTURE"] else {
+            throw XCTSkip("Set LIGHTIMAGE_RAW_FIXTURE to a local RAW file.")
+        }
+        let engine = ImageEngine()
+        let url = URL(fileURLWithPath: path)
+        let source = try engine.loadSource(url: url, maxDimension: 480)
+        let camera = try XCTUnwrap(source.rawWhiteBalance)
+        let raw = try XCTUnwrap(CIRAWFilter(imageURL: url))
+        XCTAssertEqual(camera.temperature, Double(raw.neutralTemperature))
+        XCTAssertEqual(camera.tint, Double(raw.neutralTint))
+
+        func pixels(_ image: CIImage) -> Data? {
+            (try? engine.cgImage(image))?.dataProvider?.data as Data?
+        }
+        let asShot = try XCTUnwrap(pixels(source.image))
+        var edits = Adjustments()
+        edits["Temperature"] = camera.temperature
+        edits["Tint"] = camera.tint
+        XCTAssertEqual(try pixels(engine.render(source, adjustments: edits)), asShot)
+
+        edits["Temperature"] = camera.temperature < 6500 ? 7400 : 3600
+        edits["Tint"] = 0
+        raw.neutralTemperature = Float(edits["Temperature"])
+        raw.neutralTint = 0
+        let expected = engine.resized(engine.normalized(try XCTUnwrap(raw.outputImage)), maxDimension: 480)
+        let rendered = try engine.render(source, adjustments: edits)
+        XCTAssertEqual(rendered.extent, source.image.extent)
+        let actual = try XCTUnwrap(pixels(rendered))
+        XCTAssertEqual(actual, try XCTUnwrap(pixels(expected)))
+        XCTAssertNotEqual(actual, asShot)
+
+        var halfStrength = Adjustments()
+        halfStrength.apply(PhotoPreset(name: "Custom WB", settings: edits), amount: 0.5, rawWhiteBalance: camera)
+        XCTAssertEqual(halfStrength["Temperature"], (camera.temperature + edits["Temperature"]) / 2)
+        XCTAssertEqual(halfStrength["Tint"], camera.tint / 2)
     }
 }
