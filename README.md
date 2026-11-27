@@ -18,7 +18,7 @@ LightImage giúp bạn nhập preset Lightroom, chỉnh màu ảnh và xuất �
 
 ## Cài đặt
 
-Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.5** sửa lỗi tìm bản mới khi GitHub giới hạn API ẩn danh và thêm lệnh **Kiểm tra cập nhật…** trong menu LightImage. [Xem bản phát hành 26.0.5](https://github.com/hwo63/LightImage/releases/tag/v26.0.5)
+Bản cài sẵn dành cho **Mac Apple Silicon chạy macOS 14 trở lên**. LightImage **26.0.6** thêm thanh **Nhiệt độ màu** và **Sắc xanh / hồng** với ô nhập số và nút đặt lại cân bằng trắng. [Xem bản phát hành 26.0.6](https://github.com/hwo63/LightImage/releases/tag/v26.0.6)
 
 ### Cài bằng DMG
 
@@ -50,7 +50,7 @@ Từ bản cài **26.0.2**, LightImage kiểm tra GitHub Releases khi mở ứng
 
 Từ **26.0.5**, chọn **LightImage → Kiểm tra cập nhật…** để kiểm tra ngay. LightImage sẽ báo khi gói mới đã tải xong, khi đang dùng bản mới nhất hoặc khi có lỗi. Trình cập nhật lấy phiên bản mới nhất từ đường dẫn phát hành công khai của GitHub và xác minh chữ ký gói tải về trước khi hiện nút cài đặt.
 
-Nếu đang dùng **26.0.3** hoặc **26.0.4** và chưa thấy **Restart to Update**, hãy tải và cài **26.0.5** thủ công một lần. [Tải bộ cài 26.0.5 trên GitHub](https://github.com/hwo63/LightImage/releases/tag/v26.0.5)
+Nếu đang dùng **26.0.3** hoặc **26.0.4** và chưa thấy **Restart to Update**, hãy tải và cài bản mới nhất thủ công một lần. [Tải bộ cài trên GitHub](https://github.com/hwo63/LightImage/releases/latest)
 
 Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bản mới một lần. Mở ứng dụng từ **Applications** để LightImage có thể cập nhật tệp cài.
 
@@ -67,13 +67,15 @@ Nếu đang dùng bản **26.0.1** tải từ GitHub, hãy cài thủ công bả
 | Nhóm | Công cụ |
 | --- | --- |
 | Thư viện | Nhập ảnh và thư mục, tìm theo tên, đánh dấu, đánh giá sao và tạo bản sao ảo. |
-| Ánh sáng và màu | Phơi sáng, tương phản, vùng sáng và vùng tối, cân bằng trắng, HSL 8 nhóm màu, đường cong RGB, đen trắng, Color Grading và Calibration. |
+| Ánh sáng và màu | Phơi sáng, tương phản, vùng sáng và vùng tối, chỉnh nhiệt độ màu theo Kelvin trên RAW và theo thang tương đối trên JPEG/TIFF, Tint, HSL 8 nhóm màu, đường cong RGB, đen trắng, Color Grading và Calibration. |
 | Chi tiết và hiệu ứng | Tăng chi tiết, giảm nhiễu sáng và nhiễu màu, phục hồi tương phản và đốm nhỏ trong ảnh cũ. Có thêm Texture, Clarity, Dehaze, hạt film và tối góc. |
 | Xóa vật thể và xóa phông | Tô vật thể để LaMa tạo vùng thay thế. Lens Blur nhận diện chủ thể và chỉnh cường độ mờ hậu cảnh. |
 | Chỉnh theo vùng | Mặt nạ bầu trời, chủ thể và hậu cảnh. Tô hoặc tẩy trực tiếp với cọ bám viền, xem trước khi rê và kéo cọ. Có điều chỉnh độ mềm, độ đậm và độ nhạy bám viền. |
 | Chân dung | Tự nhận diện khuôn mặt để làm trắng da, làm mịn da, xóa đốm mụn nhỏ và thon mặt riêng từng người. Có thêm thon eo, tay và chân, cùng mặt nạ cọ để chỉnh tóc. Apple Vision phân tích ảnh trên máy. |
 | So sánh | Xem Trước/Sau hoặc Kéo vạch với mức zoom và vị trí đồng bộ để kiểm tra màu và chi tiết. |
 | Khung hình và xuất ảnh | Cắt theo tỷ lệ, xoay, lật và cân thẳng. Xuất JPEG, PNG hoặc TIFF 16-bit ở sRGB cho ảnh đang mở, ảnh đã chọn, toàn bộ ảnh đã chỉnh hoặc ảnh đang lọc. |
+
+Trong **Cân bằng trắng & Màu**, kéo **Nhiệt độ màu** sang trái để ảnh lạnh hơn hoặc sang phải để ảnh ấm hơn. Bạn cũng có thể nhập số trực tiếp. Ảnh RAW dùng Kelvin và khởi đầu theo cân bằng trắng của máy ảnh. JPEG và TIFF dùng thang tương đối từ −100 đến +100. Chỉnh thêm **Sắc xanh / hồng** để cân ám màu, hoặc bấm **Đặt lại** để trở về cân bằng trắng gốc.
 
 Trong **Chỉnh theo vùng**, dùng **Tô** hoặc **Tẩy** để sửa mép mặt nạ. Khi đang kéo cọ, bấm **Esc** để hủy nét. Giữ **Space** và kéo để di chuyển ảnh. **⌘Z** và **⇧⌘Z** hoàn tác hoặc làm lại từng nét trên mặt nạ đang chọn.
 

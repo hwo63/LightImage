@@ -5,7 +5,7 @@
  <key>CFBundleDisplayName</key><string>LightImage</string>
  <key>CFBundleIdentifier</key><string>vn.hwo.LightImage</string>
  <key>CFBundleVersion</key><string>1</string>
- <key>CFBundleShortVersionString</key><string>26.0.5</string>
+ <key>CFBundleShortVersionString</key><string>26.0.6</string>
  <key>CFBundleExecutable</key><string>LightImage</string>
  <key>CFBundlePackageType</key><string>APPL</string>
  <key>CFBundleIconFile</key><string>AppIcon</string>
