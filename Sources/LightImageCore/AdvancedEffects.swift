@@ -49,7 +49,7 @@ enum AdvancedEffects {
     static var kernelsAvailable: Bool { denoise != nil && sharpen != nil && haze != nil && autoTone != nil }
     private static func apply(_ kernel: CIColorKernel?, to image: CIImage, _ arguments: [Any]) throws -> CIImage {
         guard let output = kernel?.apply(extent: image.extent, arguments: arguments) else {
-            throw LightImageError.exportFailed("Core Image không khởi tạo được bộ lọc nâng cao.")
+            throw LightImageError.exportFailed(tr("Core Image không khởi tạo được bộ lọc nâng cao."))
         }
         return output
     }

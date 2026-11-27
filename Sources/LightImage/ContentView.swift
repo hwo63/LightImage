@@ -11,7 +11,8 @@ enum Theme {
     static let accent = Color(red: 0.77, green: 0.88, blue: 0.56)
 }
 
-struct ContentView: View {
+struct ContentView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var updater: AppUpdater
     @State private var dropTargeted = false
@@ -38,23 +39,23 @@ struct ContentView: View {
         .overlay { if dropTargeted { RoundedRectangle(cornerRadius: 10).stroke(Theme.accent, lineWidth: 3).padding(5).allowsHitTesting(false) } }
         .dropDestination(for: URL.self) { urls, _ in model.importURLs(urls); return true } isTargeted: { dropTargeted = $0 }
         .alert("LightImage", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
-            Button("Đóng") { model.error = nil }
-            if model.selected != nil { Button("Chọn lại ảnh gốc…") { model.error = nil; model.relink() } }
+            Button(tr("Đóng")) { model.error = nil }
+            if model.selected != nil { Button(tr("Chọn lại ảnh gốc…")) { model.error = nil; model.relink() } }
         } message: { Text(model.error ?? "") }
-        .alert("Cập nhật LightImage", isPresented: Binding(get: { updater.checkResult != nil },
+        .alert(tr("Cập nhật LightImage"), isPresented: Binding(get: { updater.checkResult?.showAlert == true },
                 set: { if !$0 { updater.dismissCheckResult() } }), presenting: updater.checkResult) { result in
             if result.offersReleasePage {
-                Button("Mở GitHub Releases") { NSWorkspace.shared.open(UpdateClient.latest) }
+                Button(tr("Mở GitHub Releases")) { NSWorkspace.shared.open(UpdateClient.latest) }
             }
-            Button("Đóng", role: .cancel) { updater.dismissCheckResult() }
+            Button(tr("Đóng"), role: .cancel) { updater.dismissCheckResult() }
         } message: { result in
-            Text(result.detail)
+            Text(result.detail.localized(language))
         }
         .sheet(isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })) {
             VStack(alignment: .leading, spacing: 20) {
-                Label("Thông tin từ LightImage", systemImage: "info.circle").font(.title3.weight(.semibold))
+                Label(tr("Thông tin từ LightImage"), systemImage: "info.circle").font(.title3.weight(.semibold))
                 ScrollView { Text(model.notice ?? "").textSelection(.enabled).font(.system(size: 13)).lineSpacing(5).frame(maxWidth: .infinity, alignment: .leading) }.frame(maxHeight: 360)
-                HStack { Spacer(); Button("Đã hiểu") { model.notice = nil }.buttonStyle(AccentButtonStyle()) }.keyboardShortcut(.defaultAction)
+                HStack { Spacer(); Button(tr("Đã hiểu")) { model.notice = nil }.buttonStyle(AccentButtonStyle()) }.keyboardShortcut(.defaultAction)
             }.padding(28).frame(width: 550).background(Theme.panel)
         }
         .sheet(isPresented: $model.exportSheet) { ExportView() }
@@ -70,19 +71,21 @@ struct ContentView: View {
                 Text("lightimage").font(.system(size: 20, weight: .semibold, design: .rounded)).tracking(-0.6)
             }.frame(width: 222)
             HStack(spacing: 6) {
-                tab("Thư viện", icon: "square.grid.2x2", selected: model.libraryMode) { model.libraryMode = true }
-                tab("Chỉnh ảnh", icon: "slider.horizontal.3", selected: !model.libraryMode) { model.libraryMode = false }
+                tab(tr("Thư viện"), icon: "square.grid.2x2", selected: model.libraryMode) { model.libraryMode = true }
+                tab(tr("Chỉnh ảnh"), icon: "slider.horizontal.3", selected: !model.libraryMode) { model.libraryMode = false }
             }.padding(.leading, 24)
             Spacer()
             if model.selected != nil {
                 HStack(spacing: 14) {
-                    Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.disabled(!model.canUndo).help("Hoàn tác · ⌘Z")
-                    Button { model.redo() } label: { Image(systemName: "arrow.uturn.forward") }.disabled(!model.canRedo).help("Làm lại · ⇧⌘Z")
+                    Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }.disabled(!model.canUndo).help(tr("Hoàn tác · ⌘Z"))
+                    Button { model.redo() } label: { Image(systemName: "arrow.uturn.forward") }.disabled(!model.canRedo).help(tr("Làm lại · ⇧⌘Z"))
                 }.font(.system(size: 13)).padding(.trailing, 28)
             }
-            Button { model.importPhotos() } label: { Label("Nhập ảnh", systemImage: "plus").font(.system(size: 12, weight: .medium)) }.buttonStyle(QuietButtonStyle())
-            Button { model.exportSheet = true } label: { Label("Xuất ảnh", systemImage: "square.and.arrow.up").font(.system(size: 12, weight: .semibold)) }
+            Button { model.importPhotos() } label: { Label(tr("Nhập ảnh"), systemImage: "plus").font(.system(size: 12, weight: .medium)) }.buttonStyle(QuietButtonStyle())
+            Button { model.exportSheet = true } label: { Label(tr("Xuất ảnh"), systemImage: "square.and.arrow.up").font(.system(size: 12, weight: .semibold)) }
                 .buttonStyle(AccentButtonStyle()).disabled(model.selected == nil || model.isExporting).padding(.leading, 10).padding(.trailing, 20)
+            SettingsLink { Image(systemName: "gearshape").font(.system(size: 14)).padding(8) }
+                .accessibilityLabel(tr("Cài đặt")).help(tr("Cài đặt")).padding(.trailing, 14)
         }.frame(height: 68).background(Theme.panel)
     }
     private func tab(_ label: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -91,14 +94,14 @@ struct ContentView: View {
     private var statusbar: some View {
         HStack(spacing: 8) {
             Circle().fill(model.saved ? Theme.accent : Color.orange).frame(width: 5, height: 5)
-            Text(model.status).lineLimit(1)
+            Text(model.status.localized(language)).lineLimit(1)
             Spacer()
             if model.isRendering || model.isExporting || model.isImporting { ProgressView().controlSize(.mini) }
             if updater.isChecking {
                 ProgressView().controlSize(.mini)
-                Text("Đang kiểm tra cập nhật…")
+                Text(tr("Đang kiểm tra cập nhật…"))
             }
-            Text(model.saved ? "Đã lưu trên máy" : "Đang lưu…")
+            Text(model.saved ? tr("Đã lưu trên máy") : tr("Đang lưu…"))
             Text("·").padding(.horizontal, 5)
             Text(LightImageVersion.displayName).foregroundStyle(Theme.muted)
             if let version = updater.readyVersion {
@@ -113,30 +116,31 @@ struct ContentView: View {
                         .foregroundStyle(Theme.background)
                 }
                 .disabled(model.isImporting || model.isExporting)
-                .help("LightImage \(version) đã tải xong. Bấm để lưu, cài đặt và mở lại.")
+                .help(tr("LightImage \(version) đã tải xong. Bấm để lưu, cài đặt và mở lại."))
             }
         }.font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.horizontal, 20).frame(height: 28).background(Theme.panel)
     }
 }
 
-struct SidebarView: View {
+struct SidebarView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     @State private var showHistory = false
     @State private var savePreset = false
     @State private var presetName = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            caption("KHÔNG GIAN CỦA BẠN").padding(.top, 26).padding(.bottom, 15)
-            navigationRow("Tất cả ảnh", icon: "photo.on.rectangle.angled", key: "all", count: model.catalog.photos.count)
-            navigationRow("Đã đánh dấu", icon: "flag", key: "flagged", count: model.catalog.photos.filter(\.flagged).count)
-            navigationRow("Ảnh nổi bật", icon: "star", key: "rated", count: model.catalog.photos.filter { $0.rating >= 4 }.count)
-            navigationRow("Đã chỉnh sửa", icon: "slider.horizontal.3", key: "edited", count: model.catalog.photos.filter { $0.adjustments.isEdited }.count)
+            caption(tr("KHÔNG GIAN CỦA BẠN")).padding(.top, 26).padding(.bottom, 15)
+            navigationRow(tr("Tất cả ảnh"), icon: "photo.on.rectangle.angled", key: "all", count: model.catalog.photos.count)
+            navigationRow(tr("Đã đánh dấu"), icon: "flag", key: "flagged", count: model.catalog.photos.filter(\.flagged).count)
+            navigationRow(tr("Ảnh nổi bật"), icon: "star", key: "rated", count: model.catalog.photos.filter { $0.rating >= 4 }.count)
+            navigationRow(tr("Đã chỉnh sửa"), icon: "slider.horizontal.3", key: "edited", count: model.catalog.photos.filter { $0.adjustments.isEdited }.count)
             Rectangle().fill(Theme.line).frame(height: 1).padding(.vertical, 24).padding(.horizontal, 18)
             HStack {
                 Button("Preset") { showHistory = false }.foregroundStyle(showHistory ? Theme.muted : .white)
-                Button("Lịch sử") { showHistory = true }.foregroundStyle(showHistory ? .white : Theme.muted).padding(.leading, 12)
+                Button(tr("Lịch sử")) { showHistory = true }.foregroundStyle(showHistory ? .white : Theme.muted).padding(.leading, 12)
                 Spacer()
-                Menu { Button("Nhập preset Lightroom…") { model.importPresets() }; Button("Lưu chỉnh sửa thành preset…") { savePreset = true }.disabled(model.selected == nil) } label: { Image(systemName: "plus").foregroundStyle(Theme.muted) }.menuStyle(.borderlessButton).frame(width: 20)
+                Menu { Button(tr("Nhập preset Lightroom…")) { model.importPresets() }; Button(tr("Lưu chỉnh sửa thành preset…")) { savePreset = true }.disabled(model.selected == nil) } label: { Image(systemName: "plus").foregroundStyle(Theme.muted) }.menuStyle(.borderlessButton).frame(width: 20)
             }.font(.system(size: 13, weight: .semibold)).padding(.horizontal, 20)
             if showHistory {
                 ScrollView {
@@ -144,22 +148,22 @@ struct SidebarView: View {
                         ForEach(model.currentHistory.reversed()) { step in
                             Label(step.label, systemImage: "circle.dotted").font(.system(size: 11)).lineLimit(2)
                         }
-                        Label("Ảnh gốc", systemImage: "photo").font(.system(size: 11)).foregroundStyle(Theme.muted)
-                        Text("Lịch sử hoàn tác lưu trong phiên này. Chỉnh sửa cuối cùng được lưu khi đóng ứng dụng.").font(.system(size: 10)).foregroundStyle(Theme.muted).lineSpacing(3)
+                        Label(tr("Ảnh gốc"), systemImage: "photo").font(.system(size: 11)).foregroundStyle(Theme.muted)
+                        Text(tr("Lịch sử hoàn tác lưu trong phiên này. Chỉnh sửa cuối cùng được lưu khi đóng ứng dụng.")).font(.system(size: 10)).foregroundStyle(Theme.muted).lineSpacing(3)
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
                 }
             } else {
-                HStack(spacing: 6) { Image(systemName: "magnifyingglass"); TextField("Tìm preset…", text: $model.presetQuery).textFieldStyle(.plain) }
+                HStack(spacing: 6) { Image(systemName: "magnifyingglass"); TextField(tr("Tìm preset…"), text: $model.presetQuery).textFieldStyle(.plain) }
                     .font(.system(size: 11)).foregroundStyle(Theme.muted).padding(9).background(Theme.background, in: RoundedRectangle(cornerRadius: 5)).padding(.horizontal, 16).padding(.top, 16)
                 if !model.batchSelection.isEmpty {
-                    Text("Áp dụng preset cho \(model.batchSelection.count) ảnh đã chọn")
+                    Text(tr("Áp dụng preset cho \(model.batchSelection.count) ảnh đã chọn"))
                         .font(.system(size: 10)).foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.top, 9)
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(Set(model.visiblePresets.map(\.group))).sorted(), id: \.self) { group in
-                            Text(group.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Theme.muted).padding(.top, 19).padding(.bottom, 7).padding(.leading, 8)
+                            Text(groupTitle(group).uppercased()).font(.system(size: 9, weight: .semibold)).tracking(1).foregroundStyle(Theme.muted).padding(.top, 19).padding(.bottom, 7).padding(.leading, 8)
                             ForEach(model.visiblePresets.filter { $0.group == group }) { preset in
                                 presetRow(preset)
                             }
@@ -168,22 +172,30 @@ struct SidebarView: View {
                 }
                 if model.canAdjustPresetStrength {
                     VStack(alignment: .leading, spacing: 7) {
-                        HStack { Text("Cường độ preset"); Spacer(); Text("\(Int(model.presetStrength))%") }.font(.system(size: 10)).foregroundStyle(Theme.muted)
-                        Slider(value: Binding(get: { model.presetStrength }, set: { model.updatePresetStrength($0) }), in: 0...100, onEditingChanged: { if !$0 { model.endGesture("Cường độ preset") } }).controlSize(.mini)
+                        HStack { Text(tr("Cường độ preset")); Spacer(); Text("\(Int(model.presetStrength))%") }.font(.system(size: 10)).foregroundStyle(Theme.muted)
+                        Slider(value: Binding(get: { model.presetStrength }, set: { model.updatePresetStrength($0) }), in: 0...100, onEditingChanged: { if !$0 { model.endGesture(tr("Cường độ preset")) } }).controlSize(.mini)
                     }.padding(18)
                 }
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack { Image(systemName: "slider.horizontal.2.square"); Text("Mang màu sắc của bạn vào") }.font(.system(size: 11, weight: .medium))
-                    Text("Nhập preset Lightroom\n.xmp và .lrtemplate").font(.system(size: 10)).foregroundStyle(Theme.muted).lineSpacing(4)
-                    Button { model.importPresets() } label: { HStack { Text("Nhập preset"); Spacer(); Image(systemName: "arrow.down.to.line") }.font(.system(size: 11, weight: .medium)) }.buttonStyle(QuietButtonStyle())
+                    HStack { Image(systemName: "slider.horizontal.2.square"); Text(tr("Mang màu sắc của bạn vào")) }.font(.system(size: 11, weight: .medium))
+                    Text(tr("Nhập preset Lightroom\n.xmp và .lrtemplate")).font(.system(size: 10)).foregroundStyle(Theme.muted).lineSpacing(4)
+                    Button { model.importPresets() } label: { HStack { Text(tr("Nhập preset")); Spacer(); Image(systemName: "arrow.down.to.line") }.font(.system(size: 11, weight: .medium)) }.buttonStyle(QuietButtonStyle())
                 }.padding(14).background(Theme.surface.opacity(0.6), in: RoundedRectangle(cornerRadius: 8)).padding(14)
             }
         }.frame(maxHeight: .infinity, alignment: .top).background(Theme.panel)
-            .alert("Lưu preset", isPresented: $savePreset) {
-                TextField("Tên preset", text: $presetName)
-                Button("Hủy", role: .cancel) {}
-                Button("Lưu") { model.savePreset(name: presetName); presetName = "" }
-            } message: { Text("Lưu các thông số màu hiện tại để dùng cho ảnh khác. Xoay và cắt không nằm trong preset.") }
+            .alert(tr("Lưu preset"), isPresented: $savePreset) {
+                TextField(tr("Tên preset"), text: $presetName)
+                Button(tr("Hủy"), role: .cancel) {}
+                Button(tr("Lưu")) { model.savePreset(name: presetName); presetName = "" }
+            } message: { Text(tr("Lưu các thông số màu hiện tại để dùng cho ảnh khác. Xoay và cắt không nằm trong preset.")) }
+    }
+    private func groupTitle(_ group: String) -> String {
+        switch group {
+        case "Preset của tôi": return tr("Preset của tôi")
+        case "Đã nhập": return tr("Đã nhập")
+        case "Preset Lightroom": return tr("Preset Lightroom")
+        default: return group
+        }
     }
     private func caption(_ text: String) -> some View { Text(text).font(.system(size: 9, weight: .semibold)).tracking(1.6).foregroundStyle(Theme.muted).padding(.horizontal, 20) }
     private func navigationRow(_ text: String, icon: String, key: String, count: Int) -> some View {
@@ -204,15 +216,16 @@ struct SidebarView: View {
                 Spacer(minLength: 0)
                 if model.selectedPreset == preset.id { Image(systemName: "checkmark").font(.system(size: 10)).foregroundStyle(Theme.accent) }
             }.padding(7).background(model.selectedPreset == preset.id ? Theme.accent.opacity(0.09) : .clear, in: RoundedRectangle(cornerRadius: 5))
-        }.disabled(model.selected == nil).help(preset.source + (preset.unsupported.isEmpty ? "" : " · Có thông số chưa hỗ trợ"))
+        }.disabled(model.selected == nil).help(preset.source + (preset.unsupported.isEmpty ? "" : tr(" · Có thông số chưa hỗ trợ")))
             .contextMenu {
-                Button("Xem thông tin") { model.notice = "\(preset.name)\nNguồn: \(preset.source)\n\(preset.supportedCount) mục được hỗ trợ.\n\nChưa hỗ trợ: \(preset.unsupported.isEmpty ? "Không có mục được phát hiện" : preset.unsupported.joined(separator: ", "))\n\nMàu được mô phỏng bằng LightImage." }
-                if preset.source != "LightImage" || preset.group == "Preset của tôi" { Button("Xóa preset", role: .destructive) { model.deletePreset(preset.id) } }
+                Button(tr("Xem thông tin")) { model.notice = tr("\(preset.name)\nNguồn: \(preset.source)\n\(preset.supportedCount) mục được hỗ trợ.\n\nChưa hỗ trợ: \(preset.unsupported.isEmpty ? tr("Không có mục được phát hiện") : preset.unsupported.joined(separator: ", "))\n\nMàu được mô phỏng bằng LightImage.") }
+                if preset.source != "LightImage" || preset.group == "Preset của tôi" { Button(tr("Xóa preset"), role: .destructive) { model.deletePreset(preset.id) } }
             }
     }
 }
 
-struct PhotoCanvas: View {
+struct PhotoCanvas: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     @State private var zoom = Zoom.fit
     @State private var center = CGPoint(x: 0.5, y: 0.5)
@@ -229,7 +242,7 @@ struct PhotoCanvas: View {
             if let selected = model.selected {
                 HStack(spacing: 9) {
                     Text(selected.name).font(.system(size: 11, weight: .medium)).lineLimit(1)
-                    Text(selected.path.hasSuffix("Alpine morning.jpg") ? "ẢNH MINH HỌA" : URL(fileURLWithPath: selected.path).pathExtension.uppercased()).font(.system(size: 8, weight: .semibold)).tracking(0.8).foregroundStyle(Theme.muted).padding(.horizontal, 6).padding(.vertical, 3).background(Theme.surface, in: RoundedRectangle(cornerRadius: 3))
+                    Text(selected.path.hasSuffix("Alpine morning.jpg") ? tr("ẢNH MINH HỌA") : URL(fileURLWithPath: selected.path).pathExtension.uppercased()).font(.system(size: 8, weight: .semibold)).tracking(0.8).foregroundStyle(Theme.muted).padding(.horizontal, 6).padding(.vertical, 3).background(Theme.surface, in: RoundedRectangle(cornerRadius: 3))
                     Spacer()
                     Text(model.sourceSize).font(.system(size: 10, design: .monospaced)).foregroundStyle(Theme.muted)
                 }.padding(.horizontal, 26).frame(height: 47)
@@ -265,12 +278,12 @@ struct PhotoCanvas: View {
                 }
             }
         } else if model.isRendering {
-            ProgressView("Đang mở ảnh…").font(.system(size: 11)).tint(Theme.accent)
+            ProgressView(tr("Đang mở ảnh…")).font(.system(size: 11)).tint(Theme.accent)
         } else {
             VStack(spacing: 14) {
                 Image(systemName: "photo.badge.exclamationmark").font(.largeTitle)
-                Text("Không đọc được ảnh gốc")
-                Button("Chọn lại tệp…") { model.relink() }.buttonStyle(QuietButtonStyle())
+                Text(tr("Không đọc được ảnh gốc"))
+                Button(tr("Chọn lại tệp…")) { model.relink() }.buttonStyle(QuietButtonStyle())
             }.foregroundStyle(Theme.muted)
         }
     }
@@ -281,8 +294,8 @@ struct PhotoCanvas: View {
         let rect = photoViewport(area: panelSize, image: after.size).frame
         let input = photoInput(area: panelSize, image: after.size)
         return HStack(spacing: spacing) {
-            comparisonPanel(before, label: "TRƯỚC", rect: rect, area: panelSize, input: input)
-            comparisonPanel(after, label: "SAU", rect: rect, area: panelSize, input: input)
+            comparisonPanel(before, label: tr("TRƯỚC"), rect: rect, area: panelSize, input: input)
+            comparisonPanel(after, label: tr("SAU"), rect: rect, area: panelSize, input: input)
         }
     }
 
@@ -341,41 +354,42 @@ struct PhotoCanvas: View {
         HStack(spacing: 20) {
             HStack(spacing: 10) {
                 Button { resetZoom() } label: {
-                    Text("Vừa khung").foregroundStyle(zoom == .fit ? Theme.accent : Theme.muted)
-                }.help("Cuộn chuột trên ảnh để phóng to hoặc thu nhỏ. Kéo ảnh khi đã phóng to.")
+                    Text(tr("Vừa khung")).foregroundStyle(zoom == .fit ? Theme.accent : Theme.muted)
+                }.help(tr("Cuộn chuột trên ảnh để phóng to hoặc thu nhỏ. Kéo ảnh khi đã phóng to."))
                 Button {
                     zoom = .pixels
                     center = CGPoint(x: 0.5, y: 0.5)
                     model.compare = false
                     model.splitCompare = false
                 } label: {
-                    Text("100% xem trước").foregroundStyle(zoom == .pixels ? Theme.accent : Theme.muted)
-                }.help("Xem pixel bản xem trước, cạnh dài tối đa 2400 px. Xuất ảnh vẫn dùng độ phân giải gốc.")
+                    Text(tr("100% xem trước")).foregroundStyle(zoom == .pixels ? Theme.accent : Theme.muted)
+                }.help(tr("Xem pixel bản xem trước, cạnh dài tối đa 2400 px. Xuất ảnh vẫn dùng độ phân giải gốc."))
                 if case .custom(let factor) = zoom {
                     Text("\(Int((factor * 100).rounded()))%").monospacedDigit().foregroundStyle(Theme.accent)
-                        .accessibilityLabel("Mức zoom so với vừa khung")
+                        .accessibilityLabel(tr("Mức zoom so với vừa khung"))
                         .accessibilityValue("\(Int((factor * 100).rounded()))%")
-                        .help("Mức zoom so với vừa khung")
+                        .help(tr("Mức zoom so với vừa khung"))
                 }
             }
             Spacer()
             RatingView(rating: rating) { model.setRating($0) }
             Button { model.toggleFlag() } label: {
                 Image(systemName: "flag.fill").foregroundStyle(model.selected?.flagged == true ? Theme.accent : Theme.muted)
-            }.help("Đánh dấu · P")
+            }.help(tr("Đánh dấu · P"))
             Spacer()
             Button { model.compare.toggle(); model.splitCompare = false } label: {
-                Label("Trước / Sau", systemImage: "rectangle.split.2x1").foregroundStyle(model.compare ? Theme.accent : Theme.muted)
-            }.help("So sánh · \\")
+                Label(tr("Trước / Sau"), systemImage: "rectangle.split.2x1").foregroundStyle(model.compare ? Theme.accent : Theme.muted)
+            }.help(tr("So sánh · \\"))
             Button { model.splitCompare.toggle(); model.compare = false } label: {
-                Label("Kéo vạch", systemImage: "rectangle.split.2x1.fill").foregroundStyle(model.splitCompare ? Theme.accent : Theme.muted)
-            }.help("Cuộn để zoom. Kéo vạch để so sánh hoặc kéo ngoài vạch để di chuyển ảnh đã phóng to.")
+                Label(tr("Kéo vạch"), systemImage: "rectangle.split.2x1.fill").foregroundStyle(model.splitCompare ? Theme.accent : Theme.muted)
+            }.help(tr("Cuộn để zoom. Kéo vạch để so sánh hoặc kéo ngoài vạch để di chuyển ảnh đã phóng to."))
         }.font(.system(size: 10)).padding(.horizontal, 26).frame(height: toolbarHeight)
     }
 
 }
 
-struct WelcomeView: View {
+struct WelcomeView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     var body: some View {
         VStack(spacing: 0) {
@@ -384,25 +398,26 @@ struct WelcomeView: View {
                 Circle().stroke(Theme.accent.opacity(0.14), lineWidth: 1).frame(width: 136, height: 136)
                 Image(systemName: "camera.aperture").font(.system(size: 70, weight: .ultraLight)).foregroundStyle(Theme.accent)
             }.padding(.bottom, 26)
-            Text("Ánh sáng. Màu sắc. Câu chuyện.").font(.system(size: 28, weight: .light, design: .serif)).multilineTextAlignment(.center)
-            Text("Không gian riêng cho những khung hình của bạn.").font(.system(size: 12)).foregroundStyle(Theme.muted).padding(.top, 14)
-            Button { model.importPhotos() } label: { Label("Mở những bức ảnh đầu tiên", systemImage: "plus").font(.system(size: 12, weight: .semibold)) }.buttonStyle(AccentButtonStyle()).padding(.top, 30)
-            Text("Kéo ảnh hoặc thư mục vào đây · RAW, JPEG, HEIC, PNG, TIFF").font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.top, 16)
-            Button("Khám phá với ảnh minh họa  ↗") { model.loadDemo() }.font(.system(size: 11)).foregroundStyle(Theme.accent.opacity(0.8)).padding(.top, 32)
+            Text(tr("Ánh sáng. Màu sắc. Câu chuyện.")).font(.system(size: 28, weight: .light, design: .serif)).multilineTextAlignment(.center)
+            Text(tr("Không gian riêng cho những khung hình của bạn.")).font(.system(size: 12)).foregroundStyle(Theme.muted).padding(.top, 14)
+            Button { model.importPhotos() } label: { Label(tr("Mở những bức ảnh đầu tiên"), systemImage: "plus").font(.system(size: 12, weight: .semibold)) }.buttonStyle(AccentButtonStyle()).padding(.top, 30)
+            Text(tr("Kéo ảnh hoặc thư mục vào đây · RAW, JPEG, HEIC, PNG, TIFF")).font(.system(size: 10)).foregroundStyle(Theme.muted).padding(.top, 16)
+            Button(tr("Khám phá với ảnh minh họa  ↗")) { model.loadDemo() }.font(.system(size: 11)).foregroundStyle(Theme.accent.opacity(0.8)).padding(.top, 32)
         }.padding(30).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-struct FilmstripView: View {
+struct FilmstripView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     var body: some View {
         VStack(spacing: 0) {
             Rectangle().fill(Theme.line).frame(height: 1)
             HStack {
-                Text("\(model.photos.count) ẢNH").font(.system(size: 9, weight: .semibold)).tracking(1.2)
+                Text(tr("\(model.photos.count) ẢNH")).font(.system(size: 9, weight: .semibold)).tracking(1.2)
                 if !model.batchSelection.isEmpty {
-                    Text("\(model.batchSelection.count) đã chọn").foregroundStyle(Theme.accent)
-                    Button("Bỏ chọn") { model.clearBatchSelection() }
+                    Text(tr("\(model.batchSelection.count) đã chọn")).foregroundStyle(Theme.accent)
+                    Button(tr("Bỏ chọn")) { model.clearBatchSelection() }
                 }
                 Spacer()
                 Button { model.moveSelection(-1) } label: { Image(systemName: "chevron.left") }
@@ -426,20 +441,21 @@ struct FilmstripView: View {
     }
 }
 
-struct LibraryView: View {
+struct LibraryView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack {
-                VStack(alignment: .leading, spacing: 5) { Text("Những khung hình của bạn").font(.system(size: 22, weight: .light, design: .serif)); Text("\(model.photos.count) ảnh trong chế độ lọc hiện tại").font(.system(size: 11)).foregroundStyle(Theme.muted) }
+                VStack(alignment: .leading, spacing: 5) { Text(tr("Những khung hình của bạn")).font(.system(size: 22, weight: .light, design: .serif)); Text(tr("\(model.photos.count) ảnh trong chế độ lọc hiện tại")).font(.system(size: 11)).foregroundStyle(Theme.muted) }
                 Spacer()
-                Button("Chọn ảnh đang lọc") { model.selectVisibleForBatch() }
+                Button(tr("Chọn ảnh đang lọc")) { model.selectVisibleForBatch() }
                     .disabled(model.photos.isEmpty)
                     .font(.system(size: 11)).foregroundStyle(Theme.accent)
-                HStack { Image(systemName: "magnifyingglass"); TextField("Tìm tên ảnh", text: $model.query).textFieldStyle(.plain) }.font(.system(size: 11)).foregroundStyle(Theme.muted).padding(9).frame(width: 170).background(Theme.surface, in: RoundedRectangle(cornerRadius: 5))
+                HStack { Image(systemName: "magnifyingglass"); TextField(tr("Tìm tên ảnh"), text: $model.query).textFieldStyle(.plain) }.font(.system(size: 11)).foregroundStyle(Theme.muted).padding(9).frame(width: 170).background(Theme.surface, in: RoundedRectangle(cornerRadius: 5))
             }
             if model.catalog.photos.isEmpty { WelcomeView() }
-            else if model.photos.isEmpty { ContentUnavailableView("Không tìm thấy ảnh", systemImage: "photo.on.rectangle", description: Text("Đổi bộ lọc hoặc từ khóa tìm kiếm.")) }
+            else if model.photos.isEmpty { ContentUnavailableView(tr("Không tìm thấy ảnh"), systemImage: "photo.on.rectangle", description: Text(tr("Đổi bộ lọc hoặc từ khóa tìm kiếm."))) }
             else {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 18)], spacing: 20) {
@@ -450,12 +466,12 @@ struct LibraryView: View {
                                     .onTapGesture { model.select(photo.id) }
                                     .overlay(alignment: .topLeading) { BatchPhotoCheckbox(photo: photo) }
                                 HStack { Text(photo.name).lineLimit(1); Spacer(); if photo.flagged { Image(systemName: "flag.fill").foregroundStyle(Theme.accent) } }.font(.system(size: 10))
-                                HStack(spacing: 3) { ForEach(0..<5) { i in Image(systemName: i < photo.rating ? "star.fill" : "star").font(.system(size: 8)).foregroundStyle(i < photo.rating ? Theme.accent : Theme.muted.opacity(0.5)) }; Spacer(); if photo.adjustments.isEdited { Text("Đã chỉnh").font(.system(size: 9)).foregroundStyle(Theme.accent) } }
+                                HStack(spacing: 3) { ForEach(0..<5) { i in Image(systemName: i < photo.rating ? "star.fill" : "star").font(.system(size: 8)).foregroundStyle(i < photo.rating ? Theme.accent : Theme.muted.opacity(0.5)) }; Spacer(); if photo.adjustments.isEdited { Text(tr("Đã chỉnh")).font(.system(size: 9)).foregroundStyle(Theme.accent) } }
                             }.contextMenu {
-                                Button("Chỉnh ảnh") { model.select(photo.id); model.libraryMode = false }
-                                Button("Tạo bản sao ảo") { model.makeVirtualCopy(photo.id) }
-                                Button("Hiện trong Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: photo.path)]) }
-                                Button("Bỏ khỏi thư viện", role: .destructive) { model.select(photo.id); model.removeSelected() }
+                                Button(tr("Chỉnh ảnh")) { model.select(photo.id); model.libraryMode = false }
+                                Button(tr("Tạo bản sao ảo")) { model.makeVirtualCopy(photo.id) }
+                                Button(tr("Hiện trong Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: photo.path)]) }
+                                Button(tr("Bỏ khỏi thư viện"), role: .destructive) { model.select(photo.id); model.removeSelected() }
                             }
                         }
                     }
@@ -465,12 +481,13 @@ struct LibraryView: View {
     }
 }
 
-private struct BatchPhotoCheckbox: View {
+private struct BatchPhotoCheckbox: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     let photo: PhotoRecord
 
     var body: some View {
-        Toggle("Chọn \(photo.name) cho tác vụ hàng loạt", isOn: Binding(
+        Toggle(tr("Chọn \(photo.name) cho tác vụ hàng loạt"), isOn: Binding(
             get: { model.batchSelection.contains(photo.id) },
             set: { model.setBatchSelection(photo.id, included: $0) }
         ))
@@ -491,11 +508,12 @@ struct Thumbnail: View {
     }
 }
 
-struct RatingView: View {
+struct RatingView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     let rating: Int
     let set: (Int) -> Void
     var body: some View {
-        HStack(spacing: 5) { ForEach(1...5, id: \.self) { i in Button { set(rating == i ? 0 : i) } label: { Image(systemName: i <= rating ? "star.fill" : "star").font(.system(size: 10)).foregroundStyle(i <= rating ? Theme.accent : Theme.muted.opacity(0.7)) }.help("\(i) sao · ⌃\(i)") } }
+        HStack(spacing: 5) { ForEach(1...5, id: \.self) { i in Button { set(rating == i ? 0 : i) } label: { Image(systemName: i <= rating ? "star.fill" : "star").font(.system(size: 10)).foregroundStyle(i <= rating ? Theme.accent : Theme.muted.opacity(0.7)) }.help(tr("\(i) sao · ⌃\(i)")) } }
     }
 }
 

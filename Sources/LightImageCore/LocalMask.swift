@@ -101,7 +101,7 @@ enum LocalMaskRenderer {
         for mask in masks where mask.isActive {
             let extent = result.extent
             guard let coverage = coverage(mask, extent: extent) else {
-                throw LightImageError.exportFailed("Không thể tạo vùng mặt nạ.")
+                throw LightImageError.exportFailed(tr("Không thể tạo vùng mặt nạ."))
             }
             var effect = result
             if mask.hueRotation != 0 {
@@ -124,7 +124,7 @@ enum LocalMaskRenderer {
             }
             guard let composited = mix?.apply(extent: extent, arguments: [
                 result, effect, coverage, mask.opacity / 100, mask.inverted ? 1.0 : 0.0
-            ]) else { throw LightImageError.exportFailed("Không thể kết xuất mặt nạ.") }
+            ]) else { throw LightImageError.exportFailed(tr("Không thể kết xuất mặt nạ.")) }
             result = composited
         }
         return result

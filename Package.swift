@@ -3,13 +3,14 @@ import PackageDescription
 
 let package = Package(
     name: "LightImage",
+    defaultLocalization: "vi",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "LightImage", targets: ["LightImage"]),
         .executable(name: "LightImageInstaller", targets: ["LightImageInstaller"])
     ],
     targets: [
-        .target(name: "LightImageCore"),
+        .target(name: "LightImageCore", resources: [.process("Resources")]),
         .executableTarget(name: "LightImage", dependencies: ["LightImageCore"]),
         .executableTarget(name: "LightImageInstaller"),
         .executableTarget(name: "LightImageDiagnostics", dependencies: ["LightImageCore"]),

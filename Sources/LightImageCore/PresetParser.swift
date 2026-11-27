@@ -37,28 +37,28 @@ public enum PresetParser {
 
     public static func parse(url: URL) throws -> PhotoPreset {
         let data = try Data(contentsOf: url)
-        guard data.count <= 16_000_000 else { throw LightImageError.invalidPreset("Tệp vượt quá 16 MB.") }
+        guard data.count <= 16_000_000 else { throw LightImageError.invalidPreset(tr("Tệp vượt quá 16 MB.")) }
         var preset = try parse(data: data, filename: url.lastPathComponent)
         preset.sourcePath = url.standardizedFileURL.path
         return preset
     }
 
     public static func parse(data: Data, filename: String) throws -> PhotoPreset {
-        guard data.count <= 16_000_000 else { throw LightImageError.invalidPreset("Tệp vượt quá 16 MB.") }
+        guard data.count <= 16_000_000 else { throw LightImageError.invalidPreset(tr("Tệp vượt quá 16 MB.")) }
         var fields: [String: String]
         var arrays: [String: [String]]
         if filename.lowercased().hasSuffix(".lrtemplate") {
-            guard let text = String(data: data, encoding: .utf8) else { throw LightImageError.invalidPreset("Mã hóa không phải UTF-8.") }
+            guard let text = String(data: data, encoding: .utf8) else { throw LightImageError.invalidPreset(tr("Mã hóa không phải UTF-8.")) }
             var reader = LuaReader(text)
             let root = try reader.parse()
             let settings = root.object?["value"]?.object?["settings"]?.object ?? root.object?["settings"]?.object
-            guard let settings else { throw LightImageError.invalidPreset("Không tìm thấy bảng settings.") }
+            guard let settings else { throw LightImageError.invalidPreset(tr("Không tìm thấy bảng settings.")) }
             fields = settings.compactMapValues { $0.scalar }
             arrays = settings.compactMapValues { $0.array?.compactMap(\.scalar) }
             fields["Name"] = root.object?["title"]?.scalar ?? root.object?["name"]?.scalar
         } else {
             if String(data: data, encoding: .utf8)?.localizedCaseInsensitiveContains("<!DOCTYPE") == true {
-                throw LightImageError.invalidPreset("XMP có khai báo DTD không được hỗ trợ.")
+                throw LightImageError.invalidPreset(tr("XMP có khai báo DTD không được hỗ trợ."))
             }
             let delegate = XMPReader()
             let parser = XMLParser(data: data)
@@ -67,7 +67,7 @@ public enum PresetParser {
             parser.shouldResolveExternalEntities = false
             parser.delegate = delegate
             guard parser.parse(), delegate.hasCameraRaw else {
-                throw LightImageError.invalidPreset(parser.parserError?.localizedDescription ?? "Không có dữ liệu Camera Raw trong XMP.")
+                throw LightImageError.invalidPreset(parser.parserError?.localizedDescription ?? tr("Không có dữ liệu Camera Raw trong XMP."))
             }
             fields = delegate.fields; arrays = delegate.arrays
         }
@@ -78,7 +78,7 @@ public enum PresetParser {
             if let range = ranges[canonical] {
                 let parsed = canonical == "AutoTone" ? (["true", "1"].contains(raw.lowercased()) ? 1.0 : ["false", "0"].contains(raw.lowercased()) ? 0.0 : nil) : Double(raw)
                 guard let number = parsed, number.isFinite else {
-                    throw LightImageError.invalidPreset("Giá trị \(key) không hợp lệ.")
+                    throw LightImageError.invalidPreset(tr("Giá trị \(key) không hợp lệ."))
                 }
                 // A modern value takes precedence over its legacy equivalent.
                 if aliases[key] != nil && fields[canonical] != nil { continue }
@@ -96,12 +96,12 @@ public enum PresetParser {
             guard curveKeys.contains(key) else { if !raw.isEmpty { unsupported.insert(key) }; continue }
             let numbers = raw.flatMap { $0.split(whereSeparator: { $0 == "," || $0.isWhitespace }).compactMap { Double($0) } }
             guard numbers.count >= 4, numbers.count % 2 == 0, numbers.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else {
-                throw LightImageError.invalidPreset("Đường cong \(key) không hợp lệ.")
+                throw LightImageError.invalidPreset(tr("Đường cong \(key) không hợp lệ."))
             }
             var points: [CurvePoint] = []
             for i in stride(from: 0, to: numbers.count, by: 2) { points.append(.init(numbers[i] / 255, numbers[i + 1] / 255)) }
             points.sort { $0.x < $1.x }
-            guard zip(points, points.dropFirst()).allSatisfy({ $0.x < $1.x }) else { throw LightImageError.invalidPreset("Điểm đường cong bị trùng.") }
+            guard zip(points, points.dropFirst()).allSatisfy({ $0.x < $1.x }) else { throw LightImageError.invalidPreset(tr("Điểm đường cong bị trùng.")) }
             let target = key == "ToneCurve" ? "ToneCurvePV2012" : key
             if key == "ToneCurve" && arrays[target] != nil { continue }
             a.curves[target] = points
@@ -118,7 +118,7 @@ public enum PresetParser {
         var preset = PhotoPreset(name: fields["Name"].flatMap { $0.isEmpty ? nil : $0 } ?? URL(fileURLWithPath: filename).deletingPathExtension().lastPathComponent,
                                  group: fields["Group"].flatMap { $0.isEmpty ? nil : $0 } ?? "Preset Lightroom",
                                  settings: a, monochrome: mono, unsupported: unsupported.sorted(), source: filename)
-        guard preset.supportedCount > 0 || !preset.unsupported.isEmpty else { throw LightImageError.invalidPreset("Không tìm thấy thông số chỉnh ảnh.") }
+        guard preset.supportedCount > 0 || !preset.unsupported.isEmpty else { throw LightImageError.invalidPreset(tr("Không tìm thấy thông số chỉnh ảnh.")) }
         preset.sourceData = data; preset.parserVersion = version
         // Before Color Grading existed, Split Toning used fully overlapping tone ranges.
         if fields["ColorGradeBlending"] == nil && fields.keys.contains(where: { $0.hasPrefix("SplitToning") }) {
@@ -199,7 +199,7 @@ private struct LuaReader {
         }
         return try value(depth: 0)
     }
-    func failure() -> LightImageError { .invalidPreset("Cú pháp .lrtemplate không hợp lệ tại ký tự \(index).") }
+    func failure() -> LightImageError { .invalidPreset(tr("Cú pháp .lrtemplate không hợp lệ tại ký tự \(index).")) }
     mutating func token() throws -> String {
         skip(); guard index < chars.count else { throw failure() }
         let quote = chars[index]

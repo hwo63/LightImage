@@ -1,7 +1,8 @@
 import SwiftUI
 import LightImageCore
 
-struct InspectorView: View {
+struct InspectorView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     @State private var lightExpanded = true
     @State private var colorExpanded = true
@@ -19,26 +20,26 @@ struct InspectorView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("PHÒNG CHỈNH ẢNH").font(.system(size: 9, weight: .semibold)).tracking(1.6)
+                Text(tr("PHÒNG CHỈNH ẢNH")).font(.system(size: 9, weight: .semibold)).tracking(1.6)
                 Spacer()
                 Image(systemName: "slider.horizontal.3").font(.system(size: 12))
             }.foregroundStyle(Theme.muted).padding(.horizontal, 20).frame(height: 48)
             HistogramView(bins: model.histogram).frame(height: 83).padding(.horizontal, 20)
-            HStack { Text("RGB"); Spacer(); Text("sRGB · Xem trước") }.font(.system(size: 9, design: .monospaced)).foregroundStyle(Theme.muted).padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 18)
+            HStack { Text("RGB"); Spacer(); Text(tr("sRGB · Xem trước")) }.font(.system(size: 9, design: .monospaced)).foregroundStyle(Theme.muted).padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 18)
             Rectangle().fill(Theme.line).frame(height: 1)
             ScrollView {
                 VStack(spacing: 0) {
                     HStack {
-                        Text("Màu sắc").font(.system(size: 11))
+                        Text(tr("Màu sắc")).font(.system(size: 11))
                         Spacer()
-                        Button("Màu") { model.change("Chế độ màu") { $0.monochrome = false } }.foregroundStyle(model.edits.monochrome ? Theme.muted : Theme.accent)
+                        Button(tr("Màu")) { model.change(tr("Chế độ màu")) { $0.monochrome = false } }.foregroundStyle(model.edits.monochrome ? Theme.muted : Theme.accent)
                         Text("/").foregroundStyle(Theme.muted)
-                        Button("Đen trắng") { model.change("Đen trắng") { $0.monochrome = true } }.foregroundStyle(model.edits.monochrome ? Theme.accent : Theme.muted)
+                        Button(tr("Đen trắng")) { model.change(tr("Đen trắng")) { $0.monochrome = true } }.foregroundStyle(model.edits.monochrome ? Theme.accent : Theme.muted)
                     }.font(.system(size: 10)).padding(20)
                     Button { model.maskSheet = true } label: {
                         HStack {
                             Image(systemName: "circle.lefthalf.filled").frame(width: 16)
-                            Text("Chỉnh theo vùng")
+                            Text(tr("Chỉnh theo vùng"))
                             Spacer()
                             let count = model.edits.localMasks?.count ?? 0
                             if count > 0 { Text("\(count)").foregroundStyle(Theme.muted).monospacedDigit() }
@@ -49,7 +50,7 @@ struct InspectorView: View {
                     Button { model.objectRemovalSheet = true } label: {
                         HStack {
                             Image(systemName: "eraser").frame(width: 16)
-                            Text("Xóa vật thể AI")
+                            Text(tr("Xóa vật thể AI"))
                             Spacer()
                             if let repairs = model.edits.objectRepairs, !repairs.isEmpty { Text("\(repairs.count)") }
                             Image(systemName: "arrow.up.right").font(.system(size: 9))
@@ -57,67 +58,67 @@ struct InspectorView: View {
                         .foregroundStyle(Theme.accent).font(.system(size: 12, weight: .medium))
                         .padding(.horizontal, 20).frame(height: 32)
                     }
-                    section("Xóa phông · Lens Blur", icon: "camera.aperture", expanded: $lensBlurExpanded) {
+                    section(tr("Xóa phông · Lens Blur"), icon: "camera.aperture", expanded: $lensBlurExpanded) {
                         if model.edits.lensBlurSubject == nil {
-                            Button("Nhận diện chủ thể") { Task { await model.prepareLensBlur() } }
+                            Button(tr("Nhận diện chủ thể")) { Task { await model.prepareLensBlur() } }
                                 .foregroundStyle(Theme.accent).disabled(model.isPreparingLensBlur)
-                            if model.isPreparingLensBlur { ProgressView("Đang nhận diện…").controlSize(.small) }
+                            if model.isPreparingLensBlur { ProgressView(tr("Đang nhận diện…")).controlSize(.small) }
                             if let message = model.lensBlurMessage {
                                 Text(message).font(.system(size: 11)).foregroundStyle(Theme.muted)
                             }
                         } else {
-                            AdjustmentSlider(title: "Độ mờ hậu cảnh", key: PhotoEnhancement.lensBlur.key, range: 0...100)
-                            Button("Bỏ xóa phông") {
-                                model.change("Bỏ xóa phông") {
+                            AdjustmentSlider(title: tr("Độ mờ hậu cảnh"), key: PhotoEnhancement.lensBlur.key, range: 0...100)
+                            Button(tr("Bỏ xóa phông")) {
+                                model.change(tr("Bỏ xóa phông")) {
                                     $0.lensBlurSubject = nil
                                     $0.values.removeValue(forKey: PhotoEnhancement.lensBlur.key)
                                 }
                             }.foregroundStyle(Theme.muted)
                         }
                     }
-                    section("Chân dung", icon: "person.crop.rectangle", expanded: Binding(
+                    section(tr("Chân dung"), icon: "person.crop.rectangle", expanded: Binding(
                         get: { model.portraitInspectorOpen },
                         set: { model.showPortraitInspector($0) }
                     )) {
                         PortraitControls()
                     }
-                    section("Ánh sáng", icon: "sun.max", expanded: $lightExpanded) {
-                        Toggle("Tự cân sáng · LightImage", isOn: Binding(get: { model.edits["AutoTone"] > 0 }, set: { enabled in model.change("Tự cân sáng") { $0["AutoTone"] = enabled ? 1 : 0 } }))
+                    section(tr("Ánh sáng"), icon: "sun.max", expanded: $lightExpanded) {
+                        Toggle(tr("Tự cân sáng · LightImage"), isOn: Binding(get: { model.edits["AutoTone"] > 0 }, set: { enabled in model.change(tr("Tự cân sáng")) { $0["AutoTone"] = enabled ? 1 : 0 } }))
                             .font(.system(size: 10)).toggleStyle(.switch).controlSize(.mini)
-                            .help("Tự cân sáng theo histogram; kết quả có thể khác AutoTone của Adobe.")
-                        AdjustmentSlider(title: "Phơi sáng", key: "Exposure2012", range: -5...5, decimals: 2)
-                        AdjustmentSlider(title: "Tương phản", key: "Contrast2012")
-                        AdjustmentSlider(title: "Vùng sáng", key: "Highlights2012")
-                        AdjustmentSlider(title: "Vùng tối", key: "Shadows2012")
-                        AdjustmentSlider(title: "Điểm trắng", key: "Whites2012")
-                        AdjustmentSlider(title: "Điểm đen", key: "Blacks2012")
+                            .help(tr("Tự cân sáng theo histogram; kết quả có thể khác AutoTone của Adobe."))
+                        AdjustmentSlider(title: tr("Phơi sáng"), key: "Exposure2012", range: -5...5, decimals: 2)
+                        AdjustmentSlider(title: tr("Tương phản"), key: "Contrast2012")
+                        AdjustmentSlider(title: tr("Vùng sáng"), key: "Highlights2012")
+                        AdjustmentSlider(title: tr("Vùng tối"), key: "Shadows2012")
+                        AdjustmentSlider(title: tr("Điểm trắng"), key: "Whites2012")
+                        AdjustmentSlider(title: tr("Điểm đen"), key: "Blacks2012")
                     }
-                    section("Cân bằng trắng & Màu", icon: "thermometer.medium", expanded: $colorExpanded) {
+                    section(tr("Cân bằng trắng & Màu"), icon: "thermometer.medium", expanded: $colorExpanded) {
                         WhiteBalanceControls().disabled(model.preview == nil)
-                        AdjustmentSlider(title: "Độ rực màu", key: "Vibrance")
-                        AdjustmentSlider(title: "Độ bão hòa", key: "Saturation")
+                        AdjustmentSlider(title: tr("Độ rực màu"), key: "Vibrance")
+                        AdjustmentSlider(title: tr("Độ bão hòa"), key: "Saturation")
                     }
-                    section("Đường cong", icon: "point.topleft.down.to.point.bottomright.curvepath", expanded: $curveExpanded) {
+                    section(tr("Đường cong"), icon: "point.topleft.down.to.point.bottomright.curvepath", expanded: $curveExpanded) {
                         CurveEditor()
                         AdjustmentSlider(title: "Parametric · Shadows", key: "ParametricShadows")
                         AdjustmentSlider(title: "Parametric · Darks", key: "ParametricDarks")
                         AdjustmentSlider(title: "Parametric · Lights", key: "ParametricLights")
                         AdjustmentSlider(title: "Parametric · Highlights", key: "ParametricHighlights")
-                        AdjustmentSlider(title: "Ranh giới tối", key: "ParametricShadowSplit", range: 0...100)
-                        AdjustmentSlider(title: "Ranh giới trung gian", key: "ParametricMidtoneSplit", range: 0...100)
-                        AdjustmentSlider(title: "Ranh giới sáng", key: "ParametricHighlightSplit", range: 0...100)
+                        AdjustmentSlider(title: tr("Ranh giới tối"), key: "ParametricShadowSplit", range: 0...100)
+                        AdjustmentSlider(title: tr("Ranh giới trung gian"), key: "ParametricMidtoneSplit", range: 0...100)
+                        AdjustmentSlider(title: tr("Ranh giới sáng"), key: "ParametricHighlightSplit", range: 0...100)
                     }
-                    section("Bộ trộn màu · HSL", icon: "circle.lefthalf.filled", expanded: $mixerExpanded) {
+                    section(tr("Bộ trộn màu · HSL"), icon: "circle.lefthalf.filled", expanded: $mixerExpanded) {
                         HStack(spacing: 10) {
                             ForEach(Array(PresetParser.colorNames.enumerated()), id: \.element) { index, name in
                                 Button { selectedColor = name } label: { Circle().fill(colors[index]).frame(width: 17, height: 17).padding(3).overlay(Circle().stroke(selectedColor == name ? .white : .clear, lineWidth: 1)) }.help(name)
                             }
                         }.padding(.bottom, 8)
-                        if model.edits.monochrome { AdjustmentSlider(title: "Độ sáng trắng đen", key: "GrayMixer" + selectedColor) }
+                        if model.edits.monochrome { AdjustmentSlider(title: tr("Độ sáng trắng đen"), key: "GrayMixer" + selectedColor) }
                         else {
-                            AdjustmentSlider(title: "Sắc độ", key: "HueAdjustment" + selectedColor)
-                            AdjustmentSlider(title: "Độ bão hòa", key: "SaturationAdjustment" + selectedColor)
-                            AdjustmentSlider(title: "Độ sáng", key: "LuminanceAdjustment" + selectedColor)
+                            AdjustmentSlider(title: tr("Sắc độ"), key: "HueAdjustment" + selectedColor)
+                            AdjustmentSlider(title: tr("Độ bão hòa"), key: "SaturationAdjustment" + selectedColor)
+                            AdjustmentSlider(title: tr("Độ sáng"), key: "LuminanceAdjustment" + selectedColor)
                         }
                     }
                     section("Color Grading", icon: "circle.hexagongrid", expanded: $gradingExpanded) { GradingControls() }
@@ -126,65 +127,65 @@ struct InspectorView: View {
                             AdjustmentSlider(title: channel + " · Hue", key: channel + "Hue")
                             AdjustmentSlider(title: channel + " · Saturation", key: channel + "Saturation")
                         }
-                        AdjustmentSlider(title: "Sắc độ vùng tối", key: "ShadowTint")
+                        AdjustmentSlider(title: tr("Sắc độ vùng tối"), key: "ShadowTint")
                     }
-                    section("Chi tiết & Phục hồi", icon: "triangle", expanded: $detailExpanded) {
-                        AdjustmentSlider(title: "Tăng chi tiết", key: PhotoEnhancement.detail.key, range: 0...100)
-                        AdjustmentSlider(title: "Phục hồi ảnh cũ", key: PhotoEnhancement.restore.key, range: 0...100)
-                            .help("Giảm đốm nhỏ và cân lại độ tương phản của ảnh phai.")
-                        AdjustmentSlider(title: "Kết cấu", key: "Texture")
-                        AdjustmentSlider(title: "Độ rõ", key: "Clarity2012")
-                        AdjustmentSlider(title: "Độ sắc nét", key: "Sharpness", range: 0...150)
+                    section(tr("Chi tiết & Phục hồi"), icon: "triangle", expanded: $detailExpanded) {
+                        AdjustmentSlider(title: tr("Tăng chi tiết"), key: PhotoEnhancement.detail.key, range: 0...100)
+                        AdjustmentSlider(title: tr("Phục hồi ảnh cũ"), key: PhotoEnhancement.restore.key, range: 0...100)
+                            .help(tr("Giảm đốm nhỏ và cân lại độ tương phản của ảnh phai."))
+                        AdjustmentSlider(title: tr("Kết cấu"), key: "Texture")
+                        AdjustmentSlider(title: tr("Độ rõ"), key: "Clarity2012")
+                        AdjustmentSlider(title: tr("Độ sắc nét"), key: "Sharpness", range: 0...150)
                         AdjustmentSlider(title: "Sharpen · Radius", key: "SharpenRadius", range: 0.5...3, decimals: 2)
                         AdjustmentSlider(title: "Sharpen · Detail", key: "SharpenDetail", range: 0...100)
                         AdjustmentSlider(title: "Sharpen · Masking", key: "SharpenEdgeMasking", range: 0...100)
-                        AdjustmentSlider(title: "Giảm nhiễu sáng", key: "LuminanceSmoothing", range: 0...100)
-                        AdjustmentSlider(title: "Nhiễu sáng · Chi tiết", key: "LuminanceNoiseReductionDetail", range: 0...100)
-                        AdjustmentSlider(title: "Nhiễu sáng · Tương phản", key: "LuminanceNoiseReductionContrast", range: 0...100)
-                        AdjustmentSlider(title: "Giảm nhiễu màu", key: "ColorNoiseReduction", range: 0...100)
-                        AdjustmentSlider(title: "Nhiễu màu · Chi tiết", key: "ColorNoiseReductionDetail", range: 0...100)
-                        AdjustmentSlider(title: "Nhiễu màu · Độ mượt", key: "ColorNoiseReductionSmoothness", range: 0...100)
+                        AdjustmentSlider(title: tr("Giảm nhiễu sáng"), key: "LuminanceSmoothing", range: 0...100)
+                        AdjustmentSlider(title: tr("Nhiễu sáng · Chi tiết"), key: "LuminanceNoiseReductionDetail", range: 0...100)
+                        AdjustmentSlider(title: tr("Nhiễu sáng · Tương phản"), key: "LuminanceNoiseReductionContrast", range: 0...100)
+                        AdjustmentSlider(title: tr("Giảm nhiễu màu"), key: "ColorNoiseReduction", range: 0...100)
+                        AdjustmentSlider(title: tr("Nhiễu màu · Chi tiết"), key: "ColorNoiseReductionDetail", range: 0...100)
+                        AdjustmentSlider(title: tr("Nhiễu màu · Độ mượt"), key: "ColorNoiseReductionSmoothness", range: 0...100)
                     }
-                    section("Hiệu ứng", icon: "camera.filters", expanded: $effectsExpanded) {
-                        AdjustmentSlider(title: "Khử sương · Dehaze", key: "Dehaze")
-                        AdjustmentSlider(title: "Tối / sáng góc", key: "PostCropVignetteAmount")
+                    section(tr("Hiệu ứng"), icon: "camera.filters", expanded: $effectsExpanded) {
+                        AdjustmentSlider(title: tr("Khử sương · Dehaze"), key: "Dehaze")
+                        AdjustmentSlider(title: tr("Tối / sáng góc"), key: "PostCropVignetteAmount")
                         if (model.edits.values["PostCropVignetteAmount"] ?? model.edits["VignetteAmount"]) != 0 {
-                            AdjustmentSlider(title: "Tâm vùng tối góc", key: "PostCropVignetteMidpoint", range: 0...100)
-                            AdjustmentSlider(title: "Độ mềm tối góc", key: "PostCropVignetteFeather", range: 0...100)
-                            AdjustmentSlider(title: "Độ tròn tối góc", key: "PostCropVignetteRoundness")
-                            AdjustmentSlider(title: "Giữ vùng sáng", key: "PostCropVignetteHighlightContrast", range: 0...100)
+                            AdjustmentSlider(title: tr("Tâm vùng tối góc"), key: "PostCropVignetteMidpoint", range: 0...100)
+                            AdjustmentSlider(title: tr("Độ mềm tối góc"), key: "PostCropVignetteFeather", range: 0...100)
+                            AdjustmentSlider(title: tr("Độ tròn tối góc"), key: "PostCropVignetteRoundness")
+                            AdjustmentSlider(title: tr("Giữ vùng sáng"), key: "PostCropVignetteHighlightContrast", range: 0...100)
                         }
-                        AdjustmentSlider(title: "Hạt film", key: "GrainAmount", range: 0...100)
+                        AdjustmentSlider(title: tr("Hạt film"), key: "GrainAmount", range: 0...100)
                         if model.edits["GrainAmount"] > 0 {
-                            AdjustmentSlider(title: "Kích thước hạt", key: "GrainSize", range: 0...100)
-                            AdjustmentSlider(title: "Độ thô hạt", key: "GrainFrequency", range: 0...100)
+                            AdjustmentSlider(title: tr("Kích thước hạt"), key: "GrainSize", range: 0...100)
+                            AdjustmentSlider(title: tr("Độ thô hạt"), key: "GrainFrequency", range: 0...100)
                         }
                     }
-                    section("Cắt & Xoay", icon: "crop.rotate", expanded: $cropExpanded) {
+                    section(tr("Cắt & Xoay"), icon: "crop.rotate", expanded: $cropExpanded) {
                         HStack {
-                            Button { model.change("Xoay trái") { $0.rotation -= 1 } } label: { Label("Trái", systemImage: "rotate.left") }
+                            Button { model.change(tr("Xoay trái")) { $0.rotation -= 1 } } label: { Label(tr("Trái"), systemImage: "rotate.left") }
                             Spacer()
-                            Button { model.change("Xoay phải") { $0.rotation += 1 } } label: { Label("Phải", systemImage: "rotate.right") }
+                            Button { model.change(tr("Xoay phải")) { $0.rotation += 1 } } label: { Label(tr("Phải"), systemImage: "rotate.right") }
                         }.font(.system(size: 11)).foregroundStyle(Theme.accent).padding(.bottom, 10)
                         HStack {
-                            Button("Lật ngang") { model.change("Lật ngang") { $0.flipHorizontal = $0.flipHorizontal != true } }
+                            Button(tr("Lật ngang")) { model.change(tr("Lật ngang")) { $0.flipHorizontal = $0.flipHorizontal != true } }
                                 .foregroundStyle(model.edits.flipHorizontal == true ? Theme.accent : Theme.muted)
                             Spacer()
-                            Button("Lật dọc") { model.change("Lật dọc") { $0.flipVertical = $0.flipVertical != true } }
+                            Button(tr("Lật dọc")) { model.change(tr("Lật dọc")) { $0.flipVertical = $0.flipVertical != true } }
                                 .foregroundStyle(model.edits.flipVertical == true ? Theme.accent : Theme.muted)
                         }.font(.system(size: 11))
-                        AdjustmentSlider(title: "Cân thẳng · °", key: "LightImageStraighten", range: -45...45, decimals: 2)
-                        Picker("Tỷ lệ", selection: Binding(get: { model.edits.cropAspect }, set: { v in model.change("Tỷ lệ cắt") { $0.cropAspect = v } })) {
-                            Text("Ảnh gốc").tag(0.0); Text("1:1").tag(1.0); Text("3:2").tag(1.5); Text("4:3").tag(4.0 / 3); Text("16:9").tag(16.0 / 9); Text("4:5").tag(0.8); Text("9:16").tag(9.0 / 16)
+                        AdjustmentSlider(title: tr("Cân thẳng · °"), key: "LightImageStraighten", range: -45...45, decimals: 2)
+                        Picker(tr("Tỷ lệ"), selection: Binding(get: { model.edits.cropAspect }, set: { v in model.change(tr("Tỷ lệ cắt")) { $0.cropAspect = v } })) {
+                            Text(tr("Ảnh gốc")).tag(0.0); Text("1:1").tag(1.0); Text("3:2").tag(1.5); Text("4:3").tag(4.0 / 3); Text("16:9").tag(16.0 / 9); Text("4:5").tag(0.8); Text("9:16").tag(9.0 / 16)
                         }.font(.system(size: 11))
                         AdjustmentSlider(title: "Transform · Scale", key: "PerspectiveScale", range: 50...150)
                         AdjustmentSlider(title: "Transform · X", key: "PerspectiveX")
                         AdjustmentSlider(title: "Transform · Y", key: "PerspectiveY")
-                        geometrySlider("Vùng giữ lại", key: \.cropScale, range: 0.2...1)
-                        geometrySlider("Vị trí ngang", key: \.cropX, range: 0...1)
-                        geometrySlider("Vị trí dọc", key: \.cropY, range: 0...1)
-                        Button("Khôi phục khung hình") {
-                            model.change("Khôi phục khung") {
+                        geometrySlider(tr("Vùng giữ lại"), key: \.cropScale, range: 0.2...1)
+                        geometrySlider(tr("Vị trí ngang"), key: \.cropX, range: 0...1)
+                        geometrySlider(tr("Vị trí dọc"), key: \.cropY, range: 0...1)
+                        Button(tr("Khôi phục khung hình")) {
+                            model.change(tr("Khôi phục khung")) {
                                 $0.rotation = 0; $0.cropAspect = 0; $0.cropScale = 1; $0.cropX = 0.5; $0.cropY = 0.5
                                 $0.flipHorizontal = nil; $0.flipVertical = nil
                                 for key in ["PerspectiveScale", "PerspectiveX", "PerspectiveY", "LightImageStraighten"] {
@@ -197,20 +198,20 @@ struct InspectorView: View {
             }.scrollIndicators(.hidden).disabled(model.selected == nil)
             VStack(spacing: 12) {
                 HStack {
-                    Button("Khôi phục") { model.reset() }.foregroundStyle(Theme.muted)
+                    Button(tr("Khôi phục")) { model.reset() }.foregroundStyle(Theme.muted)
                     Spacer()
                     Menu {
-                        Button("Sao chép chỉnh sửa") { model.copyBuffer = model.edits }
-                        Button("Dán chỉnh sửa") { model.pasteEdits() }.disabled(model.copyBuffer == nil)
-                        Button("Đồng bộ cho \(model.photos.count) ảnh đang lọc…") { confirmSync = true }.disabled(model.photos.count < 2)
-                    } label: { Label("Đồng bộ", systemImage: "square.on.square") }.menuStyle(.borderlessButton).fixedSize().foregroundStyle(Theme.muted)
+                        Button(tr("Sao chép chỉnh sửa")) { model.copyBuffer = model.edits }
+                        Button(tr("Dán chỉnh sửa")) { model.pasteEdits() }.disabled(model.copyBuffer == nil)
+                        Button(tr("Đồng bộ cho \(model.photos.count) ảnh đang lọc…")) { confirmSync = true }.disabled(model.photos.count < 2)
+                    } label: { Label(tr("Đồng bộ"), systemImage: "square.on.square") }.menuStyle(.borderlessButton).fixedSize().foregroundStyle(Theme.muted)
                 }.font(.system(size: 11))
             }.padding(20).background(Theme.panel).overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }.disabled(model.selected == nil)
         }.background(Theme.panel)
-            .alert("Đồng bộ chỉnh sửa?", isPresented: $confirmSync) {
-                Button("Hủy", role: .cancel) {}
-                Button("Đồng bộ") { model.syncVisible() }
-            } message: { Text("Đồng bộ màu và khung hình cho \(model.photos.count) ảnh trong bộ lọc. Mặt nạ và chỉnh sửa chân dung được lưu riêng cho từng ảnh. Có thể hoàn tác từng ảnh trong phiên này.") }
+            .alert(tr("Đồng bộ chỉnh sửa?"), isPresented: $confirmSync) {
+                Button(tr("Hủy"), role: .cancel) {}
+                Button(tr("Đồng bộ")) { model.syncVisible() }
+            } message: { Text(tr("Đồng bộ màu và khung hình cho \(model.photos.count) ảnh trong bộ lọc. Mặt nạ và chỉnh sửa chân dung được lưu riêng cho từng ảnh. Có thể hoàn tác từng ảnh trong phiên này.")) }
     }
     private func section<Content: View>(_ title: String, icon: String, expanded: Binding<Bool>, @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0) {
@@ -229,16 +230,17 @@ struct InspectorView: View {
     }
 }
 
-private struct WhiteBalanceControls: View {
+private struct WhiteBalanceControls: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
 
     var body: some View {
         VStack(spacing: 14) {
             HStack {
-                Text(hasWhiteBalanceEdits ? "Tùy chỉnh" : "Theo ảnh gốc").foregroundStyle(Theme.muted)
+                Text(hasWhiteBalanceEdits ? tr("Tùy chỉnh") : tr("Theo ảnh gốc")).foregroundStyle(Theme.muted)
                 Spacer()
-                Button("Đặt lại") {
-                    model.change("Đặt lại cân bằng trắng") { edits in
+                Button(tr("Đặt lại")) {
+                    model.change(tr("Đặt lại cân bằng trắng")) { edits in
                         for key in ["Temperature", "Tint", "IncrementalTemperature", "IncrementalTint"] {
                             edits.values.removeValue(forKey: key)
                         }
@@ -246,24 +248,24 @@ private struct WhiteBalanceControls: View {
                 }.buttonStyle(.plain).foregroundStyle(Theme.accent).disabled(!hasWhiteBalanceEdits)
             }.font(.system(size: 10))
             if let camera = model.rawWhiteBalance {
-                WhiteBalanceSlider(title: "Nhiệt độ màu", key: "Temperature", range: RawWhiteBalance.temperatureRange,
+                WhiteBalanceSlider(title: tr("Nhiệt độ màu"), key: "Temperature", range: RawWhiteBalance.temperatureRange,
                                    original: camera.temperature, kelvin: true, gradient: [.blue, .orange])
-                WhiteBalanceSlider(title: "Sắc xanh / hồng", key: "Tint", range: RawWhiteBalance.tintRange,
+                WhiteBalanceSlider(title: tr("Sắc xanh / hồng"), key: "Tint", range: RawWhiteBalance.tintRange,
                                    original: camera.tint, gradient: [.green, .pink])
                 if model.edits.values["IncrementalTemperature"] != nil || model.edits.values["IncrementalTint"] != nil {
-                    AdjustmentSlider(title: "Nhiệt độ tương đối của preset", key: "IncrementalTemperature")
-                    AdjustmentSlider(title: "Sắc xanh / hồng tương đối", key: "IncrementalTint")
+                    AdjustmentSlider(title: tr("Nhiệt độ tương đối của preset"), key: "IncrementalTemperature")
+                    AdjustmentSlider(title: tr("Sắc xanh / hồng tương đối"), key: "IncrementalTint")
                 }
             } else {
-                WhiteBalanceSlider(title: "Nhiệt độ màu", key: "IncrementalTemperature", range: -100...100,
+                WhiteBalanceSlider(title: tr("Nhiệt độ màu"), key: "IncrementalTemperature", range: -100...100,
                                    gradient: [.blue, .orange])
-                WhiteBalanceSlider(title: "Sắc xanh / hồng", key: "IncrementalTint", range: -100...100,
+                WhiteBalanceSlider(title: tr("Sắc xanh / hồng"), key: "IncrementalTint", range: -100...100,
                                    gradient: [.green, .pink])
                 if model.edits["Temperature"] > 0 {
-                    AdjustmentSlider(title: "Nhiệt độ Kelvin của preset", key: "Temperature", range: RawWhiteBalance.temperatureRange)
+                    AdjustmentSlider(title: tr("Nhiệt độ Kelvin của preset"), key: "Temperature", range: RawWhiteBalance.temperatureRange)
                 }
                 if model.edits["Tint"] != 0 {
-                    AdjustmentSlider(title: "Sắc xanh / hồng của preset", key: "Tint", range: RawWhiteBalance.tintRange)
+                    AdjustmentSlider(title: tr("Sắc xanh / hồng của preset"), key: "Tint", range: RawWhiteBalance.tintRange)
                 }
             }
         }
@@ -329,7 +331,8 @@ private struct WhiteBalanceSlider: View {
     }
 }
 
-struct AdjustmentSlider: View {
+struct AdjustmentSlider: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     let title: String
     let key: String
@@ -343,8 +346,8 @@ struct AdjustmentSlider: View {
                 Spacer()
                 Text(model.edits[key] == 0 ? "0" : String(format: decimals == 2 ? "%+.2f" : "%+.0f", model.edits[key]))
                     .font(.system(size: 10, design: .monospaced)).foregroundStyle(PresetParameters.isNeutral(key, value: model.edits[key], in: model.edits) ? Theme.muted : Theme.accent)
-                    .onTapGesture(count: 2) { model.change("Đặt lại \(title)") { $0.values.removeValue(forKey: key) } }
-                    .help("Nhấp đúp để đặt lại")
+                    .onTapGesture(count: 2) { model.change(tr("Đặt lại \(title)")) { $0.values.removeValue(forKey: key) } }
+                    .help(tr("Nhấp đúp để đặt lại"))
             }.font(.system(size: 10))
             Slider(value: Binding(get: { min(max(model.edits[key], range.lowerBound), range.upperBound) }, set: { model.update(key, $0) }), in: range, onEditingChanged: { if $0 { model.beginGesture() } else { model.endGesture(title) } })
                 .controlSize(.mini)
@@ -353,7 +356,8 @@ struct AdjustmentSlider: View {
     }
 }
 
-struct HistogramView: View {
+struct HistogramView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     let bins: [[Double]]
     var body: some View {
         Canvas { context, size in
@@ -368,18 +372,19 @@ struct HistogramView: View {
                 context.blendMode = .plusLighter
                 context.fill(p, with: .color([Color(red: 0.7, green: 0.35, blue: 0.3), Color(red: 0.42, green: 0.67, blue: 0.43), Color(red: 0.35, green: 0.49, blue: 0.72)][index].opacity(0.55)))
             }
-        }.background(Theme.background.opacity(0.5)).clipShape(RoundedRectangle(cornerRadius: 3)).accessibilityLabel("Biểu đồ phân bố sáng RGB")
+        }.background(Theme.background.opacity(0.5)).clipShape(RoundedRectangle(cornerRadius: 3)).accessibilityLabel(tr("Biểu đồ phân bố sáng RGB"))
     }
 }
 
-struct CurveEditor: View {
+struct CurveEditor: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
     @State private var channel = "ToneCurvePV2012"
     private var points: [CurvePoint] { model.edits.curves[channel] ?? [.init(0, 0), .init(0.25, 0.25), .init(0.5, 0.5), .init(0.75, 0.75), .init(1, 1)] }
     private var color: Color { channel.hasSuffix("Red") ? .red : channel.hasSuffix("Green") ? .green : channel.hasSuffix("Blue") ? .blue : Theme.accent }
     var body: some View {
         VStack(spacing: 10) {
-            Picker("Kênh", selection: $channel) { Text("RGB").tag("ToneCurvePV2012"); Text("R").tag("ToneCurvePV2012Red"); Text("G").tag("ToneCurvePV2012Green"); Text("B").tag("ToneCurvePV2012Blue") }.pickerStyle(.segmented).labelsHidden()
+            Picker(tr("Kênh"), selection: $channel) { Text("RGB").tag("ToneCurvePV2012"); Text("R").tag("ToneCurvePV2012Red"); Text("G").tag("ToneCurvePV2012Green"); Text("B").tag("ToneCurvePV2012Blue") }.pickerStyle(.segmented).labelsHidden()
             GeometryReader { geo in
                 Canvas { context, size in
                     for i in 1...3 {
@@ -406,39 +411,45 @@ struct CurveEditor: View {
                                 updated[index].y = y
                                 if index > 0 && index < points.count - 1 { updated[index].x = min(max(x, points[index - 1].x + 0.01), points[index + 1].x - 0.01) }
                                 model.edits.curves[channel] = updated; model.commitCurrent(); model.scheduleRender()
-                            }.onEnded { _ in model.endGesture("Đường cong") })
+                            }.onEnded { _ in model.endGesture(tr("Đường cong")) })
                 }
             }.coordinateSpace(name: "curve").frame(height: 190).padding(6).background(Theme.background, in: RoundedRectangle(cornerRadius: 4))
-            HStack { Text("Kéo điểm để chỉnh"); Spacer(); Button("Đặt lại") { model.change("Đặt lại đường cong") { $0.curves.removeValue(forKey: channel) } } }.font(.system(size: 9)).foregroundStyle(Theme.muted)
+            HStack { Text(tr("Kéo điểm để chỉnh")); Spacer(); Button(tr("Đặt lại")) { model.change(tr("Đặt lại đường cong")) { $0.curves.removeValue(forKey: channel) } } }.font(.system(size: 9)).foregroundStyle(Theme.muted)
         }
     }
 }
 
-struct ExportView: View {
+struct ExportView: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject var model: AppModel
-    @State private var format = "jpg"
-    @State private var quality = 0.95
-    @State private var size = 0.0
+    @State private var format: String
+    @State private var quality: Double
+    @State private var size: Double
     @State private var scope: ExportScope = .current
+
+    init(defaults: UserDefaults = .standard) {
+        _format = State(initialValue: defaults.string(forKey: AppSettings.exportFormat) ?? "jpg")
+        _quality = State(initialValue: defaults.object(forKey: AppSettings.exportQuality) as? Double ?? 0.95)
+        _size = State(initialValue: defaults.object(forKey: AppSettings.exportLongEdge) as? Double ?? 0)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            HStack(spacing: 13) { Image(systemName: "square.and.arrow.up").font(.title2).foregroundStyle(Theme.accent); VStack(alignment: .leading, spacing: 4) { Text("Mang bức ảnh ra thế giới").font(.system(size: 22, weight: .light, design: .serif)); Text("Kết xuất từ ảnh gốc với các chỉnh sửa của bạn.").font(.system(size: 11)).foregroundStyle(Theme.muted) } }
+            HStack(spacing: 13) { Image(systemName: "square.and.arrow.up").font(.title2).foregroundStyle(Theme.accent); VStack(alignment: .leading, spacing: 4) { Text(tr("Mang bức ảnh ra thế giới")).font(.system(size: 22, weight: .light, design: .serif)); Text(tr("Kết xuất từ ảnh gốc với các chỉnh sửa của bạn.")).font(.system(size: 11)).foregroundStyle(Theme.muted) } }
             Form {
-                Picker("Định dạng", selection: $format) { Text("JPEG · 8-bit").tag("jpg"); Text("PNG · 8-bit").tag("png"); Text("TIFF · 16-bit").tag("tiff") }
-                if format == "jpg" { HStack { Text("Chất lượng"); Slider(value: $quality, in: 0.1...1); Text("\(Int(quality * 100))%").monospacedDigit().frame(width: 40) } }
-                Picker("Cạnh dài tối đa", selection: $size) { Text("Độ phân giải gốc").tag(0.0); Text("3840 px").tag(3840.0); Text("2560 px").tag(2560.0); Text("2048 px").tag(2048.0); Text("1080 px").tag(1080.0) }
-                Picker("Phạm vi xuất", selection: $scope) {
-                    Text("Ảnh đang mở").tag(ExportScope.current)
-                    Text("Ảnh đã chọn (\(model.batchSelection.count))").tag(ExportScope.selected)
-                    Text("Toàn bộ ảnh đã chỉnh (\(model.exportTargets(.edited).count))").tag(ExportScope.edited)
-                    Text("Ảnh đang lọc (\(model.photos.count))").tag(ExportScope.filtered)
+                ExportOptions(format: $format, quality: $quality, size: $size)
+                Picker(tr("Phạm vi xuất"), selection: $scope) {
+                    Text(tr("Ảnh đang mở")).tag(ExportScope.current)
+                    Text(tr("Ảnh đã chọn (\(model.batchSelection.count))")).tag(ExportScope.selected)
+                    Text(tr("Toàn bộ ảnh đã chỉnh (\(model.exportTargets(.edited).count))")).tag(ExportScope.edited)
+                    Text(tr("Ảnh đang lọc (\(model.photos.count))")).tag(ExportScope.filtered)
                 }
             }.formStyle(.grouped).frame(height: format == "jpg" ? 205 : 170)
-            Text("Không gian màu sRGB. Không sao chép EXIF/GPS. Xuất hàng loạt tự thêm số nếu trùng tên; ảnh gốc trong thư viện luôn được giữ nguyên.").font(.system(size: 11)).foregroundStyle(Theme.muted).lineSpacing(4)
+            Text(tr("Không gian màu sRGB. Không sao chép EXIF/GPS. Xuất hàng loạt tự thêm số nếu trùng tên; ảnh gốc trong thư viện luôn được giữ nguyên.")).font(.system(size: 11)).foregroundStyle(Theme.muted).lineSpacing(4)
             HStack {
-                Button("Hủy") { model.exportSheet = false }.keyboardShortcut(.cancelAction)
+                Button(tr("Hủy")) { model.exportSheet = false }.keyboardShortcut(.cancelAction)
                 Spacer()
-                Button("Chọn nơi lưu & Xuất") { model.export(format: format, quality: quality, maxDimension: size, scope: scope) }
+                Button(tr("Chọn nơi lưu & Xuất")) { model.export(format: format, quality: quality, maxDimension: size, scope: scope) }
                     .buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction)
                     .disabled(model.exportTargets(scope).isEmpty)
             }
@@ -447,15 +458,16 @@ struct ExportView: View {
     }
 }
 
-struct GradingControls: View {
+struct GradingControls: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @State private var zone = "Shadow"
     private var hue: String { zone == "Shadow" || zone == "Highlight" ? "SplitToning" + zone + "Hue" : "ColorGrade" + zone + "Hue" }
     private var saturation: String { zone == "Shadow" || zone == "Highlight" ? "SplitToning" + zone + "Saturation" : "ColorGrade" + zone + "Sat" }
     var body: some View {
         VStack(spacing: 14) {
-            Picker("Vùng màu", selection: $zone) {
-                Text("Vùng tối").tag("Shadow"); Text("Trung gian").tag("Midtone")
-                Text("Vùng sáng").tag("Highlight"); Text("Toàn ảnh").tag("Global")
+            Picker(tr("Vùng màu"), selection: $zone) {
+                Text(tr("Vùng tối")).tag("Shadow"); Text("Trung gian").tag("Midtone")
+                Text(tr("Vùng sáng")).tag("Highlight"); Text(tr("Toàn ảnh")).tag("Global")
             }.font(.system(size: 11))
             AdjustmentSlider(title: "Hue", key: hue, range: 0...360)
             AdjustmentSlider(title: "Saturation", key: saturation, range: 0...100)

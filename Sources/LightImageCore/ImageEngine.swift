@@ -217,7 +217,7 @@ public final class ImageEngine: @unchecked Sendable {
     }
     public func cgImage(_ image: CIImage) throws -> CGImage {
         guard let cg = context.createCGImage(image, from: image.extent, format: .RGBA8, colorSpace: colorSpace) else {
-            throw LightImageError.exportFailed("Không thể kết xuất ảnh.")
+            throw LightImageError.exportFailed(tr("Không thể kết xuất ảnh."))
         }
         return cg
     }

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import LightImageCore
 
 struct UpdateVersion: Comparable, CustomStringConvertible {
     private let components: [Int]
@@ -44,12 +45,12 @@ struct UpdateClient {
 
         var errorDescription: String? {
             switch self {
-            case .invalidResponse: return "GitHub chưa trả về dữ liệu cập nhật hợp lệ. Hãy thử lại sau."
-            case .invalidRelease: return "Không đọc được phiên bản mới nhất trên GitHub. Hãy thử lại sau."
-            case .missingPackage: return "Bản phát hành mới chưa có gói cập nhật đã ký cho máy Mac này."
-            case .invalidManifest: return "Không xác minh được chữ ký hoặc thông tin của gói cập nhật."
-            case .invalidArchive: return "Tệp cập nhật tải về bị thiếu hoặc sai mã kiểm tra."
-            case .invalidBundle, .toolExit: return "Không xác minh được ứng dụng trong gói cập nhật."
+            case .invalidResponse: return tr("GitHub chưa trả về dữ liệu cập nhật hợp lệ. Hãy thử lại sau.")
+            case .invalidRelease: return tr("Không đọc được phiên bản mới nhất trên GitHub. Hãy thử lại sau.")
+            case .missingPackage: return tr("Bản phát hành mới chưa có gói cập nhật đã ký cho máy Mac này.")
+            case .invalidManifest: return tr("Không xác minh được chữ ký hoặc thông tin của gói cập nhật.")
+            case .invalidArchive: return tr("Tệp cập nhật tải về bị thiếu hoặc sai mã kiểm tra.")
+            case .invalidBundle, .toolExit: return tr("Không xác minh được ứng dụng trong gói cập nhật.")
             }
         }
     }

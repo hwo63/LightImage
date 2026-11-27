@@ -1,10 +1,12 @@
 import AppKit
 import OSLog
+import LightImageCore
 
 @MainActor final class AppUpdater: ObservableObject {
     struct CheckResult {
-        let detail: String
+        let detail: InterfaceText
         var offersReleasePage = false
+        let showAlert: Bool
     }
 
     @Published private(set) var readyVersion: String?
@@ -15,13 +17,18 @@ import OSLog
     private let client: UpdateClient?
     private var automaticChecks: Task<Void, Never>?
     private var checkTask: Task<Void, Never>?
-    private var reportCheck = false
+    private var manualCheckShowsAlert: Bool?
     private var update: DownloadedUpdate?
     private(set) var restartRequested = false
 
     init(client: UpdateClient? = UpdateClient()) { self.client = client }
 
-    func start() {
+    func setAutomaticChecks(_ enabled: Bool) {
+        if !enabled {
+            automaticChecks?.cancel()
+            automaticChecks = nil
+            return
+        }
         guard automaticChecks == nil, client != nil else { return }
         automaticChecks = Task { [weak self] in
             while !Task.isCancelled {
@@ -32,14 +39,15 @@ import OSLog
         }
     }
 
-    func checkManually() {
+    func checkManually(showAlert: Bool = true) {
         guard !restartRequested else { return }
         guard client != nil else {
             checkResult = CheckResult(detail: "Bản cài này thiếu thông tin xác minh cập nhật. Bạn có thể tải bộ cài chính thức từ GitHub.",
-                                      offersReleasePage: true)
+                                      offersReleasePage: true, showAlert: showAlert)
             return
         }
-        reportCheck = true
+        checkResult = nil
+        manualCheckShowsAlert = showAlert
         check()
     }
 
@@ -50,7 +58,7 @@ import OSLog
         isChecking = true
         checkTask = Task {
             defer {
-                reportCheck = false
+                manualCheckShowsAlert = nil
                 checkTask = nil
                 isChecking = false
             }
@@ -65,19 +73,17 @@ import OSLog
                     update = next
                     readyVersion = next.version.description
                 }
-                if reportCheck {
-                    if let readyVersion {
-                        checkResult = CheckResult(detail: "LightImage \(readyVersion) đã tải xong. Bấm Restart to Update ở góc dưới bên phải để cài đặt.")
-                    } else {
-                        checkResult = CheckResult(detail: "Bạn đang dùng bản LightImage mới nhất (\(client.installedVersion)).")
-                    }
+                if let showAlert = manualCheckShowsAlert {
+                    let detail: InterfaceText = readyVersion.map { "LightImage \($0) đã tải xong. Bấm Restart to Update để cài đặt." }
+                        ?? "Bạn đang dùng bản LightImage mới nhất (\(client.installedVersion))."
+                    checkResult = CheckResult(detail: detail, showAlert: showAlert)
                 }
             } catch {
                 guard !Task.isCancelled, !restartRequested else { return }
                 logger.notice("Không thể tải bản cập nhật: \(String(describing: error), privacy: .public)")
-                if reportCheck {
+                if let showAlert = manualCheckShowsAlert {
                     checkResult = CheckResult(detail: "Không thể kiểm tra hoặc tải bản cập nhật. \(error.localizedDescription)",
-                                              offersReleasePage: true)
+                                              offersReleasePage: true, showAlert: showAlert)
                 }
             }
         }
@@ -88,7 +94,7 @@ import OSLog
         let app = Bundle.main.bundleURL
         let parent = app.deletingLastPathComponent()
         guard app.pathExtension == "app", FileManager.default.isWritableFile(atPath: parent.path) else {
-            model.error = "Hãy mở LightImage từ thư mục có quyền ghi, chẳng hạn Applications, rồi thử cập nhật lại."
+            model.error = tr("Hãy mở LightImage từ thư mục có quyền ghi, chẳng hạn Applications, rồi thử cập nhật lại.")
             return
         }
         if let identifier = Bundle.main.bundleIdentifier,
@@ -96,7 +102,7 @@ import OSLog
                $0.processIdentifier != ProcessInfo.processInfo.processIdentifier &&
                $0.bundleURL?.resolvingSymlinksInPath() == app.resolvingSymlinksInPath()
            }) {
-            model.error = "Hãy đóng các phiên LightImage khác đang dùng cùng bản cài rồi thử cập nhật lại."
+            model.error = tr("Hãy đóng các phiên LightImage khác đang dùng cùng bản cài rồi thử cập nhật lại.")
             return
         }
         restartRequested = true

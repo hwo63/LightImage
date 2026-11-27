@@ -4,6 +4,17 @@ import ImageIO
 @testable import LightImageCore
 
 final class LightImageCoreTests: XCTestCase {
+    func testInterfaceTextTranslatesTemplatesAndPreservesUserData() {
+        let presetName = "Màu nhà tôi %@"
+        let message: InterfaceText = "Đã áp dụng \(presetName) cho \(3) ảnh đã chọn"
+        XCTAssertEqual(message.localized(.vietnamese), "Đã áp dụng \(presetName) cho 3 ảnh đã chọn")
+        XCTAssertEqual(message.localized(.english), "Applied \(presetName) to 3 selected photos")
+        let zoom: InterfaceText = "\(150)% so với vừa khung"
+        XCTAssertEqual(zoom.localized(.english), "150% of fit")
+        let missing: InterfaceText = "Thiếu bản dịch \(2)"
+        XCTAssertEqual(missing.localized(.english), "Thiếu bản dịch 2")
+    }
+
     func xmp(_ body: String, attributes: String = "") -> Data {
         Data("""
         <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:crs="http://ns.adobe.com/camera-raw-settings/1.0/" \(attributes)>\(body)</rdf:Description></rdf:RDF></x:xmpmeta>

@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import XCTest
+import LightImageCore
 @testable import LightImage
 
 final class UpdateClientTests: XCTestCase {
@@ -11,6 +12,17 @@ final class UpdateClientTests: XCTestCase {
         "x86_64"
         #endif
     }()
+
+    @MainActor func testSettingsCheckReportsInlineWhileMenuCheckUsesAlert() {
+        let updater = AppUpdater(client: nil)
+        updater.checkManually(showAlert: false)
+        XCTAssertEqual(updater.checkResult?.showAlert, false)
+        XCTAssertEqual(updater.checkResult?.offersReleasePage, true)
+        XCTAssertEqual(updater.checkResult?.detail.localized(.english),
+                       "This build is missing update verification information. Download the official installer from GitHub.")
+        updater.checkManually()
+        XCTAssertEqual(updater.checkResult?.showAlert, true)
+    }
 
     func testVersionComparisonIsNumericAndRejectsNonReleaseTags() throws {
         let installed = try XCTUnwrap(UpdateVersion("26.2.9"))

@@ -21,7 +21,7 @@ public struct ObjectRepair: Codable, Equatable, Sendable {
             guard let patch = CIImage(data: repair.png), patch.extent.width > 0, patch.extent.height > 0,
                   repair.region.width > 0, repair.region.height > 0, !repair.region.isInfinite,
                   repair.region.intersects(CGRect(x: 0, y: 0, width: 1, height: 1)) else {
-                throw LightImageError.exportFailed("Không đọc được vùng ảnh đã lấp.")
+                throw LightImageError.exportFailed(tr("Không đọc được vùng ảnh đã lấp."))
             }
             let frame = image.extent
             let scaleX = repair.region.width * frame.width / patch.extent.width
@@ -185,10 +185,10 @@ private enum RemovalError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .emptyMask: return "Hãy tô lên vật thể bạn muốn xóa."
-        case .download: return "Không tải được mô hình LaMa. Kiểm tra kết nối rồi thử lại."
-        case .invalidModel: return "Không xác minh được mô hình LaMa hoặc đầu ra của mô hình không hợp lệ."
-        case .processing: return "Không thể tạo và ghép vùng ảnh thay thế."
+        case .emptyMask: return tr("Hãy tô lên vật thể bạn muốn xóa.")
+        case .download: return tr("Không tải được mô hình LaMa. Kiểm tra kết nối rồi thử lại.")
+        case .invalidModel: return tr("Không xác minh được mô hình LaMa hoặc đầu ra của mô hình không hợp lệ.")
+        case .processing: return tr("Không thể tạo và ghép vùng ảnh thay thế.")
         }
     }
 }

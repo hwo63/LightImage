@@ -1,7 +1,8 @@
 import SwiftUI
 import LightImageCore
 
-struct MaskEditor: View {
+struct MaskEditor: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var selection: UUID?
@@ -122,10 +123,10 @@ struct MaskEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label("Chỉnh theo vùng", systemImage: "circle.lefthalf.filled").font(.headline)
+                Label(tr("Chỉnh theo vùng"), systemImage: "circle.lefthalf.filled").font(.headline)
                 Spacer()
-                Toggle("Hiện vùng chọn", isOn: $showGuide).toggleStyle(.checkbox)
-                    .help("Tắt lớp phủ để xem màu ảnh sau khi chỉnh.")
+                Toggle(tr("Hiện vùng chọn"), isOn: $showGuide).toggleStyle(.checkbox)
+                    .help(tr("Tắt lớp phủ để xem màu ảnh sau khi chỉnh."))
                 Button("Xong") { dismiss() }.buttonStyle(AccentButtonStyle()).keyboardShortcut(.defaultAction)
                     .disabled(edgeTask != nil)
             }
@@ -139,7 +140,7 @@ struct MaskEditor: View {
                         }
                         zoomControls
                     } else if model.maskPreviewError == nil {
-                        ProgressView("Đang mở ảnh…").frame(maxWidth: .infinity, maxHeight: .infinity)
+                        ProgressView(tr("Đang mở ảnh…")).frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     if let error = model.maskPreviewError {
                         Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(Theme.muted)
@@ -151,23 +152,23 @@ struct MaskEditor: View {
                     VStack(alignment: .leading, spacing: 11) {
                         HStack {
                             Menu {
-                                Section("Tự động") {
+                                Section(tr("Tự động")) {
                                     ForEach(LocalMask.Kind.allCases.filter(\.isAutomatic), id: \.self) { kind in
                                         Button(title(kind)) { add(kind) }
                                     }
                                 }
-                                Section("Thủ công") {
+                                Section(tr("Thủ công")) {
                                     ForEach(LocalMask.Kind.allCases.filter { !$0.isAutomatic }, id: \.self) { kind in
                                         Button(title(kind)) { add(kind) }
                                     }
                                 }
-                            } label: { Label("Thêm mặt nạ", systemImage: "plus") }
+                            } label: { Label(tr("Thêm mặt nạ"), systemImage: "plus") }
                             .menuStyle(.borderlessButton)
                             .disabled(masks.count >= LocalMask.maximumCount || detecting != nil || model.maskPreview == nil)
                             Spacer()
                         }
                         if let detecting {
-                            ProgressView("Đang nhận diện \(title(detecting).lowercased())…")
+                            ProgressView(tr("Đang nhận diện \(title(detecting).lowercased())…"))
                                 .controlSize(.small).font(.system(size: 11))
                         }
                         if let detectionMessage {
@@ -185,7 +186,7 @@ struct MaskEditor: View {
                                 HStack {
                                     Image(systemName: mask.enabled ? "circle.fill" : "circle")
                                         .font(.system(size: 7)).foregroundStyle(Theme.accent)
-                                    Text("\(index + 1). \(mask.purpose == .hair ? "Tóc" : title(mask.kind))")
+                                    Text("\(index + 1). \(mask.purpose == .hair ? tr("Tóc") : title(mask.kind))")
                                     Spacer()
                                     if selection == mask.id { Image(systemName: "checkmark") }
                                 }
@@ -195,7 +196,7 @@ struct MaskEditor: View {
                         }
                         if let active { controls(active) }
                         else {
-                            Text("Chọn vùng tự động hoặc vẽ mặt nạ trên ảnh.")
+                            Text(tr("Chọn vùng tự động hoặc vẽ mặt nạ trên ảnh."))
                                 .foregroundStyle(Theme.muted).font(.system(size: 11))
                         }
                     }.padding(.trailing, 5)
@@ -203,19 +204,19 @@ struct MaskEditor: View {
             }
             HStack(spacing: 12) {
                 if hoverGuide != nil {
-                    Label(erase ? "Cam: vùng sẽ tẩy" : "Xanh: vùng sẽ tô",
+                    Label(erase ? tr("Cam: vùng sẽ tẩy") : tr("Xanh: vùng sẽ tô"),
                           systemImage: "circle.fill")
                         .foregroundStyle(erase ? .orange : .mint)
-                        .help("Rê cọ để xem vùng sẽ thay đổi tại vị trí hiện tại.")
+                        .help(tr("Rê cọ để xem vùng sẽ thay đổi tại vị trí hiện tại."))
                 } else if let active {
-                    Text(active.purpose == .hair ? "Tô lên tóc rồi dùng các thanh chỉnh màu bên phải." : instruction(active.kind))
+                    Text(active.purpose == .hair ? tr("Tô lên tóc rồi dùng các thanh chỉnh màu bên phải.") : instruction(active.kind))
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 if active?.kind.supportsBrush == true {
-                    Text("Esc để hủy nét đang kéo").fixedSize()
+                    Text(tr("Esc để hủy nét đang kéo")).fixedSize()
                 }
-                Label(spaceHeld ? "Đang kéo tạm" : "Giữ Space để kéo", systemImage: "hand.draw")
+                Label(spaceHeld ? tr("Đang kéo tạm") : tr("Giữ Space để kéo"), systemImage: "hand.draw")
                     .foregroundStyle(spaceHeld ? Theme.accent : Theme.muted)
                     .fixedSize()
             }.font(.system(size: 11)).foregroundStyle(Theme.muted)
@@ -244,15 +245,15 @@ struct MaskEditor: View {
             detectionTask?.cancel()
             edgeTask?.cancel()
             previewTask?.cancel()
-            model.endGesture("Chỉnh mặt nạ")
+            model.endGesture(tr("Chỉnh mặt nạ"))
         }
     }
 
     private var zoomControls: some View {
         HStack(spacing: 10) {
-            Picker("Công cụ trên ảnh", selection: $canvasMode) {
-                Label("Chỉnh vùng", systemImage: "paintbrush").tag(CanvasMode.edit)
-                Label("Kéo ảnh", systemImage: "hand.draw").tag(CanvasMode.pan)
+            Picker(tr("Công cụ trên ảnh"), selection: $canvasMode) {
+                Label(tr("Chỉnh vùng"), systemImage: "paintbrush").tag(CanvasMode.edit)
+                Label(tr("Kéo ảnh"), systemImage: "hand.draw").tag(CanvasMode.pan)
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
             .onChange(of: canvasMode) { _, _ in
@@ -261,16 +262,16 @@ struct MaskEditor: View {
 
             Spacer()
             Button { zoomBy(1 / 1.4) } label: { Image(systemName: "minus.magnifyingglass") }
-                .disabled(zoom <= 1).accessibilityLabel("Thu nhỏ")
+                .disabled(zoom <= 1).accessibilityLabel(tr("Thu nhỏ"))
             Slider(value: Binding(get: { log2(zoom) }, set: { zoom = pow(2, $0) }), in: 0...3)
                 .frame(width: 104).controlSize(.small)
-                .accessibilityLabel("Mức phóng to ảnh")
-                .accessibilityValue("\(Int((zoom * 100).rounded()))% so với vừa khung")
+                .accessibilityLabel(tr("Mức phóng to ảnh"))
+                .accessibilityValue(tr("\(Int((zoom * 100).rounded()))% so với vừa khung"))
             Button { zoomBy(1.4) } label: { Image(systemName: "plus.magnifyingglass") }
-                .disabled(zoom >= 8).accessibilityLabel("Phóng to")
+                .disabled(zoom >= 8).accessibilityLabel(tr("Phóng to"))
             Text("\(Int((zoom * 100).rounded()))%").monospacedDigit().frame(width: 45, alignment: .trailing)
-                .help("Mức phóng so với vừa khung")
-            Button("Vừa khung") {
+                .help(tr("Mức phóng so với vừa khung"))
+            Button(tr("Vừa khung")) {
                 zoom = 1
                 offset = .zero
             }.disabled(zoom <= 1)
@@ -288,7 +289,7 @@ struct MaskEditor: View {
         return ZStack(alignment: .topLeading) {
             Theme.background
             Image(nsImage: image).resizable().interpolation(.high)
-                .accessibilityLabel("Ảnh xem trước khi chỉnh theo vùng")
+                .accessibilityLabel(tr("Ảnh xem trước khi chỉnh theo vùng"))
                 .frame(width: rect.width, height: rect.height)
                 .overlay { maskGuide(size: rect.size) }
                 .position(x: rect.midX, y: rect.midY)
@@ -490,61 +491,61 @@ struct MaskEditor: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
             HStack {
-                Toggle("Bật", isOn: flag(mask, \.enabled, label: "Bật/tắt mặt nạ"))
-                Toggle("Đảo vùng", isOn: flag(mask, \.inverted, label: "Đảo vùng mặt nạ"))
+                Toggle(tr("Bật"), isOn: flag(mask, \.enabled, label: tr("Bật/tắt mặt nạ")))
+                Toggle(tr("Đảo vùng"), isOn: flag(mask, \.inverted, label: tr("Đảo vùng mặt nạ")))
             }.toggleStyle(.checkbox)
             if mask.kind.supportsBrush {
-                Picker("Cọ", selection: $erase) {
-                    Text("Tô").tag(false)
-                    Text("Tẩy").tag(true)
+                Picker(tr("Cọ"), selection: $erase) {
+                    Text(tr("Tô")).tag(false)
+                    Text(tr("Tẩy")).tag(true)
                 }.pickerStyle(.segmented).labelsHidden()
                 HStack {
-                    Button("Hoàn tác", systemImage: "arrow.uturn.backward") { changeStrokeHistory(.undo) }
+                    Button(tr("Hoàn tác"), systemImage: "arrow.uturn.backward") { changeStrokeHistory(.undo) }
                         .disabled(mask.strokes.isEmpty)
-                        .help("Bỏ nét Tô hoặc Tẩy gần nhất trên mặt nạ này · ⌘Z")
-                    Button("Làm lại", systemImage: "arrow.uturn.forward") { changeStrokeHistory(.redo) }
+                        .help(tr("Bỏ nét Tô hoặc Tẩy gần nhất trên mặt nạ này · ⌘Z"))
+                    Button(tr("Làm lại"), systemImage: "arrow.uturn.forward") { changeStrokeHistory(.redo) }
                         .disabled(!model.canRedoMaskStroke(mask.id))
-                        .help("Khôi phục nét vừa hoàn tác trên mặt nạ này · ⇧⌘Z")
+                        .help(tr("Khôi phục nét vừa hoàn tác trên mặt nạ này · ⇧⌘Z"))
                 }
                 .controlSize(.small)
                 .disabled(!canChangeStrokeHistory)
                 HStack {
-                    Text("Cỡ cọ")
+                    Text(tr("Cỡ cọ"))
                     if mask.kind.isAutomatic {
-                        Slider(value: $correctionRadius, in: 0.1...15, step: 0.1).accessibilityLabel("Cỡ cọ")
+                        Slider(value: $correctionRadius, in: 0.1...15, step: 0.1).accessibilityLabel(tr("Cỡ cọ"))
                     } else {
-                        Slider(value: $radius, in: 1...15, step: 1).accessibilityLabel("Cỡ cọ")
+                        Slider(value: $radius, in: 1...15, step: 1).accessibilityLabel(tr("Cỡ cọ"))
                     }
                 }
                 if mask.kind.isAutomatic {
                     let brush = erase ? $eraseBrush : $paintBrush
-                    brushSlider("Độ mềm cọ", value: brush.softness)
-                        .help("Làm dịu mép của nét cọ mới.")
-                    brushSlider("Độ đậm cọ", value: brush.strength)
-                        .help("Mức thêm hoặc xóa vùng chọn trong mỗi nét.")
-                    Toggle("Bám viền", isOn: brush.followsEdges)
+                    brushSlider(tr("Độ mềm cọ"), value: brush.softness)
+                        .help(tr("Làm dịu mép của nét cọ mới."))
+                    brushSlider(tr("Độ đậm cọ"), value: brush.strength)
+                        .help(tr("Mức thêm hoặc xóa vùng chọn trong mỗi nét."))
+                    Toggle(tr("Bám viền"), isOn: brush.followsEdges)
                         .toggleStyle(.checkbox)
-                        .help("Giữ tâm cọ trên tóc hoặc nền cần sửa. Cọ hạn chế lan qua chỗ đổi màu rõ.")
+                        .help(tr("Giữ tâm cọ trên tóc hoặc nền cần sửa. Cọ hạn chế lan qua chỗ đổi màu rõ."))
                     if brush.wrappedValue.followsEdges {
-                        brushSlider("Độ nhạy bám viền", value: brush.edgeSensitivity)
-                            .help("Mức cao giúp cọ dừng ở ranh giới có chênh lệch màu nhẹ.")
+                        brushSlider(tr("Độ nhạy bám viền"), value: brush.edgeSensitivity)
+                            .help(tr("Mức cao giúp cọ dừng ở ranh giới có chênh lệch màu nhẹ."))
                     }
-                    if edgeTask != nil { ProgressView("Đang bám viền…").controlSize(.small) }
+                    if edgeTask != nil { ProgressView(tr("Đang bám viền…")).controlSize(.small) }
                 }
-                let reset = mask.kind.isAutomatic ? "Đặt lại nét sửa" : "Xóa nét cọ"
+                let reset = mask.kind.isAutomatic ? tr("Đặt lại nét sửa") : tr("Xóa nét cọ")
                 Button(reset) { model.modifyMask(mask.id, label: reset) { $0.strokes = [] } }
                     .foregroundStyle(Theme.muted).disabled(mask.strokes.isEmpty)
             }
-            if mask.kind != .linear { slider(mask.kind.isAutomatic ? "Độ mềm mặt nạ" : "Độ mềm", mask, \.feather, 0...100) }
-            slider(mask.kind.isAutomatic ? "Cường độ mặt nạ" : "Cường độ", mask, \.opacity, 0...100)
-            if mask.purpose == .hair { slider("Sắc màu tóc", mask, \.hueRotation, -180...180) }
-            slider("Phơi sáng", mask, \.exposure, -3...3, step: 0.05)
-            slider("Tương phản", mask, \.contrast, -100...100)
-            slider("Độ bão hòa", mask, \.saturation, -100...100)
-            slider("Nhiệt độ màu", mask, \.temperature, -100...100)
+            if mask.kind != .linear { slider(mask.kind.isAutomatic ? tr("Độ mềm mặt nạ") : tr("Độ mềm"), mask, \.feather, 0...100) }
+            slider(mask.kind.isAutomatic ? tr("Cường độ mặt nạ") : tr("Cường độ"), mask, \.opacity, 0...100)
+            if mask.purpose == .hair { slider(tr("Sắc màu tóc"), mask, \.hueRotation, -180...180) }
+            slider(tr("Phơi sáng"), mask, \.exposure, -3...3, step: 0.05)
+            slider(tr("Tương phản"), mask, \.contrast, -100...100)
+            slider(tr("Độ bão hòa"), mask, \.saturation, -100...100)
+            slider(tr("Nhiệt độ màu"), mask, \.temperature, -100...100)
             Button(role: .destructive) {
-                model.change("Xóa mặt nạ") { $0.localMasks?.removeAll { $0.id == mask.id } }
-            } label: { Label("Xóa mặt nạ", systemImage: "trash").foregroundStyle(.red.opacity(0.85)) }
+                model.change(tr("Xóa mặt nạ")) { $0.localMasks?.removeAll { $0.id == mask.id } }
+            } label: { Label(tr("Xóa mặt nạ"), systemImage: "trash").foregroundStyle(.red.opacity(0.85)) }
         }.font(.system(size: 11))
     }
 
@@ -574,11 +575,11 @@ struct MaskEditor: View {
                     .monospacedDigit().foregroundStyle(Theme.accent)
             }
             Slider(value: Binding(get: { mask[keyPath: key] }, set: { value in
-                model.modifyMask(mask.id, label: draggingSlider ? nil : title + " • Mặt nạ") { $0[keyPath: key] = value }
+                model.modifyMask(mask.id, label: draggingSlider ? nil : title + tr(" • Mặt nạ")) { $0[keyPath: key] = value }
             }), in: range, step: step, onEditingChanged: { editing in
                 draggingSlider = editing
                 adjustingEffect = editing && key != \.feather
-                if !editing { model.endGesture(title + " • Mặt nạ") }
+                if !editing { model.endGesture(title + tr(" • Mặt nạ")) }
             }).controlSize(.mini).accessibilityLabel(title)
         }
     }
@@ -609,7 +610,7 @@ struct MaskEditor: View {
     }
 
     private func insert(_ mask: LocalMask) {
-        model.change("Thêm mặt nạ " + title(mask.kind).lowercased()) { edits in
+        model.change(tr("Thêm mặt nạ ") + title(mask.kind).lowercased()) { edits in
             edits.localMasks = (edits.localMasks ?? []) + [mask]
         }
         selection = mask.id
@@ -642,7 +643,7 @@ struct MaskEditor: View {
             guard !active.kind.isAutomatic || brush.strength > 0 else { return }
             let stroke = brushStroke(points: points, mask: active)
             guard active.strokes.count < 200 else { return }
-            let label = erase ? "Tẩy mặt nạ" : "Tô mặt nạ"
+            let label = erase ? tr("Tẩy mặt nạ") : tr("Tô mặt nạ")
             if active.kind.isAutomatic && brush.followsEdges {
                 addEdgeStroke(stroke, to: active, sensitivity: brush.edgeSensitivity, label: label)
             } else {
@@ -651,7 +652,7 @@ struct MaskEditor: View {
         } else {
             let start = viewport.normalizedPoint(event.startLocation)
             guard hypot(start.x - end.x, start.y - end.y) > 0.012 else { return }
-            model.modifyMask(active.id, label: "Đặt vùng gradient") { $0.start = start; $0.end = end }
+            model.modifyMask(active.id, label: tr("Đặt vùng gradient")) { $0.start = start; $0.end = end }
         }
     }
 
@@ -676,7 +677,7 @@ struct MaskEditor: View {
                       current.strokes == mask.strokes, current.inverted == mask.inverted else { return }
                 model.modifyMask(mask.id, label: label) { $0.strokes.append(refined) }
             } catch {
-                if !Task.isCancelled { edgeMessage = "Không thể bám viền cho nét này. Hãy thử lại hoặc bỏ chọn Bám viền." }
+                if !Task.isCancelled { edgeMessage = tr("Không thể bám viền cho nét này. Hãy thử lại hoặc bỏ chọn Bám viền.") }
             }
         }
     }
@@ -735,21 +736,21 @@ struct MaskEditor: View {
 
     private func title(_ kind: LocalMask.Kind) -> String {
         switch kind {
-        case .sky: return "Bầu trời"
-        case .subject: return "Chủ thể"
-        case .background: return "Hậu cảnh"
-        case .linear: return "Gradient thẳng"
-        case .radial: return "Gradient tròn"
-        case .brush: return "Cọ"
+        case .sky: return tr("Bầu trời")
+        case .subject: return tr("Chủ thể")
+        case .background: return tr("Hậu cảnh")
+        case .linear: return tr("Gradient thẳng")
+        case .radial: return tr("Gradient tròn")
+        case .brush: return tr("Cọ")
         }
     }
 
     private func instruction(_ kind: LocalMask.Kind) -> String {
         switch kind {
-        case .sky, .subject, .background: return "Tô để thêm vùng bị thiếu, Tẩy để bớt vùng bị lấn. Lớp phủ hồng hiển thị vùng chọn."
-        case .linear: return "Kéo từ vùng chỉnh mạnh nhất đến nơi hiệu ứng kết thúc."
-        case .radial: return "Kéo từ tâm vùng chỉnh đến rìa. Điều chỉnh độ mềm để hòa vào nền."
-        case .brush: return "Kéo để tô vùng cần chỉnh. Chọn Tẩy để bỏ bớt vùng đã tô."
+        case .sky, .subject, .background: return tr("Tô để thêm vùng bị thiếu, Tẩy để bớt vùng bị lấn. Lớp phủ hồng hiển thị vùng chọn.")
+        case .linear: return tr("Kéo từ vùng chỉnh mạnh nhất đến nơi hiệu ứng kết thúc.")
+        case .radial: return tr("Kéo từ tâm vùng chỉnh đến rìa. Điều chỉnh độ mềm để hòa vào nền.")
+        case .brush: return tr("Kéo để tô vùng cần chỉnh. Chọn Tẩy để bỏ bớt vùng đã tô.")
         }
     }
 }

@@ -69,7 +69,7 @@ private struct MaskPreviewRequest: Sendable {
     @Published var isRendering = false
     @Published var isImporting = false
     @Published var isExporting = false
-    @Published var status = "Sẵn sàng sáng tạo"
+    @Published var status: InterfaceText = "Sẵn sàng sáng tạo"
     @Published var error: String?
     @Published var notice: String?
     @Published var query = ""
@@ -162,11 +162,11 @@ private struct MaskPreviewRequest: Sendable {
             let file = self.dataDirectory.appendingPathComponent("catalog.json")
             if FileManager.default.fileExists(atPath: file.path) {
                 catalog = try JSONDecoder().decode(Catalog.self, from: Data(contentsOf: file))
-                guard catalog.version == 1 else { throw LightImageError.exportFailed("Phiên bản thư viện không tương thích.") }
+                guard catalog.version == 1 else { throw LightImageError.exportFailed(tr("Phiên bản thư viện không tương thích.")) }
             }
         } catch {
             persistenceAvailable = false
-            self.error = "Không mở được thư viện đã lưu. Tệp hiện tại được giữ nguyên; phiên này chưa thể tự lưu.\n\(error.localizedDescription)"
+            self.error = tr("Không mở được thư viện đã lưu. Tệp hiện tại được giữ nguyên; phiên này chưa thể tự lưu.\n\(error.localizedDescription)")
         }
         // Retain original preset data so future parser upgrades can recover newly supported controls.
         var upgraded = false
@@ -183,7 +183,7 @@ private struct MaskPreviewRequest: Sendable {
         createThumbnails(catalog.photos)
     }
     func select(_ id: UUID) {
-        endGesture("Điều chỉnh")
+        endGesture(tr("Điều chỉnh"))
         guard let photo = catalog.photos.first(where: { $0.id == id }) else { return }
         selectedID = id; edits = photo.adjustments; selectedPreset = nil; presetBase = nil
         rawWhiteBalance = nil
@@ -201,7 +201,7 @@ private struct MaskPreviewRequest: Sendable {
 
     func selectPortrait(_ face: CGRect?) {
         guard edits.portraitFace != face else { return }
-        change("Chọn người chỉnh chân dung") { $0.selectPortraitFace(face) }
+        change(tr("Chọn người chỉnh chân dung")) { $0.selectPortraitFace(face) }
     }
 
     func updateFaceRetouch(_ key: WritableKeyPath<PortraitRetouch.Settings, Double>, _ value: Double, label: String? = nil) {
@@ -217,7 +217,7 @@ private struct MaskPreviewRequest: Sendable {
     }
 
     func setPortraitWaist(_ waist: PortraitWaist?) {
-        change(waist == nil ? "Dùng vị trí eo tự động" : "Đặt vị trí eo") {
+        change(waist == nil ? tr("Dùng vị trí eo tự động") : tr("Đặt vị trí eo")) {
             $0.portraitWaist = waist
         }
     }
@@ -229,7 +229,7 @@ private struct MaskPreviewRequest: Sendable {
         } else {
             var mask = LocalMask(kind: .brush)
             mask.purpose = .hair
-            change("Thêm mặt nạ tóc") { $0.localMasks = ($0.localMasks ?? []) + [mask] }
+            change(tr("Thêm mặt nạ tóc")) { $0.localMasks = ($0.localMasks ?? []) + [mask] }
             preferredMaskID = mask.id
         }
         maskSheet = true
@@ -243,7 +243,7 @@ private struct MaskPreviewRequest: Sendable {
         do {
             let foreground = try await detectMask(.subject, for: photo)
             guard selectedID == photo.id, selected?.path == photo.path else { return }
-            change("Xóa phông") {
+            change(tr("Xóa phông")) {
                 $0.lensBlurSubject = foreground
                 if $0[PhotoEnhancement.lensBlur.key] == 0 { $0[PhotoEnhancement.lensBlur.key] = 40 }
             }
@@ -270,9 +270,9 @@ private struct MaskPreviewRequest: Sendable {
         let repair = try await generativeRemoval.repair(url: URL(fileURLWithPath: photo.path), repairs: previous, strokes: strokes)
         try Task.checkCancellation()
         guard selectedID == photo.id, selected?.path == photo.path, (edits.objectRepairs ?? []) == previous else {
-            throw LightImageError.exportFailed("Ảnh đã thay đổi trong lúc xử lý. Hãy tô lại trên ảnh đang mở.")
+            throw LightImageError.exportFailed(tr("Ảnh đã thay đổi trong lúc xử lý. Hãy tô lại trên ảnh đang mở."))
         }
-        change("Xóa vật thể AI") { $0.objectRepairs = previous + [repair] }
+        change(tr("Xóa vật thể AI")) { $0.objectRepairs = previous + [repair] }
     }
 
     func moveSelection(_ delta: Int) {
@@ -290,8 +290,8 @@ private struct MaskPreviewRequest: Sendable {
     func clearBatchSelection() { batchSelection.removeAll() }
     func importPhotos() {
         let panel = NSOpenPanel()
-        panel.title = "Nhập ảnh hoặc thư mục ảnh"
-        panel.prompt = "Nhập ảnh"
+        panel.title = tr("Nhập ảnh hoặc thư mục ảnh")
+        panel.prompt = tr("Nhập ảnh")
         panel.allowsMultipleSelection = true; panel.canChooseDirectories = true
         panel.allowedContentTypes = [.image, .folder] + ImageEngine.rawExtensions.compactMap { UTType(filenameExtension: $0) }
         if panel.runModal() == .OK { importURLs(panel.urls) }
@@ -324,12 +324,12 @@ private struct MaskPreviewRequest: Sendable {
                 self.isImporting = false; self.status = "Đã nhập \(new.count) ảnh · giữ nguyên tệp gốc"
                 if let first = new.first { self.filter = "all"; self.query = ""; self.select(first.id) }
                 self.createThumbnails(new); self.save()
-                if new.isEmpty { self.notice = "Không có ảnh mới để nhập. Ảnh trùng sẽ được bỏ qua; hỗ trợ JPEG, PNG, HEIC, TIFF và các tệp RAW do macOS giải mã." }
+                if new.isEmpty { self.notice = tr("Không có ảnh mới để nhập. Ảnh trùng sẽ được bỏ qua; hỗ trợ JPEG, PNG, HEIC, TIFF và các tệp RAW do macOS giải mã.") }
             }
         }
     }
     func importPresets() {
-        let panel = NSOpenPanel(); panel.title = "Nhập preset Lightroom"; panel.prompt = "Nhập preset"
+        let panel = NSOpenPanel(); panel.title = tr("Nhập preset Lightroom"); panel.prompt = tr("Nhập preset")
         panel.allowsMultipleSelection = true; panel.canChooseDirectories = true
         panel.allowedContentTypes = [UTType(filenameExtension: "xmp") ?? .data, UTType(filenameExtension: "lrtemplate") ?? .data, .folder]
         panel.begin { [weak self] response in
@@ -360,9 +360,9 @@ private struct MaskPreviewRequest: Sendable {
                 }
                 self.save(); self.status = "Preset: \(count) mới · \(updated) cập nhật"
                 let warnings = imported.filter { !$0.unsupported.isEmpty }.map { "• \($0.name): \($0.unsupported.joined(separator: ", "))" }
-                var report = "Đã nhập \(count) preset mới và cập nhật \(updated) preset đã có.\n\nThông số được chuyển sang bộ xử lý LightImage, màu có thể khác Adobe Lightroom."
-                if !warnings.isEmpty { report += "\n\nChưa hỗ trợ các mục sau:\n" + warnings.prefix(15).joined(separator: "\n") }
-                if !failures.isEmpty { report += "\n\nTệp không đọc được:\n" + failures.prefix(10).joined(separator: "\n") }
+                var report = tr("Đã nhập \(count) preset mới và cập nhật \(updated) preset đã có.\n\nThông số được chuyển sang bộ xử lý LightImage, màu có thể khác Adobe Lightroom.")
+                if !warnings.isEmpty { report += tr("\n\nChưa hỗ trợ các mục sau:\n") + warnings.prefix(15).joined(separator: "\n") }
+                if !failures.isEmpty { report += tr("\n\nTệp không đọc được:\n") + failures.prefix(10).joined(separator: "\n") }
                 self.notice = report
             }
         }
@@ -404,14 +404,14 @@ private struct MaskPreviewRequest: Sendable {
               let stroke = edits.localMasks?.first(where: { $0.id == maskID })?.strokes.last else { return }
         var pending = maskStrokeRedo[photoID]?[maskID] ?? []
         pending.append(stroke)
-        modifyMask(maskID, label: "Hoàn tác nét cọ") { $0.strokes.removeLast() }
+        modifyMask(maskID, label: tr("Hoàn tác nét cọ")) { $0.strokes.removeLast() }
         maskStrokeRedo[photoID, default: [:]][maskID] = pending
     }
 
     func redoMaskStroke(_ maskID: UUID) {
         guard let photoID = selectedID, var pending = maskStrokeRedo[photoID]?[maskID],
               let stroke = pending.popLast() else { return }
-        modifyMask(maskID, label: "Làm lại nét cọ") { $0.strokes.append(stroke) }
+        modifyMask(maskID, label: tr("Làm lại nét cọ")) { $0.strokes.append(stroke) }
         if !pending.isEmpty { maskStrokeRedo[photoID, default: [:]][maskID] = pending }
     }
 
@@ -441,7 +441,7 @@ private struct MaskPreviewRequest: Sendable {
     }
     func selectBrushEdges(_ stroke: LocalMask.BrushStroke, sensitivity: Double) async throws -> BrushEdgeSelection {
         guard let image = maskPreview?.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            throw LightImageError.exportFailed("Thiếu ảnh xem trước để bám viền.")
+            throw LightImageError.exportFailed(tr("Thiếu ảnh xem trước để bám viền."))
         }
         return try await withCheckedThrowingContinuation { continuation in
             maskQueue.async {
@@ -455,7 +455,7 @@ private struct MaskPreviewRequest: Sendable {
         if let before = gestureStart { record(label, before: before) }; gestureStart = nil
     }
     func change(_ label: String, _ block: (inout Adjustments) -> Void) {
-        endGesture("Điều chỉnh")
+        endGesture(tr("Điều chỉnh"))
         let before = edits; block(&edits); record(label, before: before); commitCurrent(); scheduleRender()
     }
     func record(_ label: String, before: Adjustments) {
@@ -490,7 +490,7 @@ private struct MaskPreviewRequest: Sendable {
     }
 
     private func applyPresetToSelection(_ preset: PhotoPreset) {
-        endGesture("Điều chỉnh")
+        endGesture(tr("Điều chỉnh"))
         var processed: [PhotoRecord] = []
         for index in catalog.photos.indices where batchSelection.contains(catalog.photos[index].id) {
             var photo = catalog.photos[index]
@@ -526,9 +526,9 @@ private struct MaskPreviewRequest: Sendable {
         edits.values["LightImageStraighten"] = current.values["LightImageStraighten"]
         commitCurrent(); scheduleRender()
     }
-    func reset() { change("Khôi phục ảnh gốc") { $0 = Adjustments() }; selectedPreset = nil; presetBase = nil }
+    func reset() { change(tr("Khôi phục ảnh gốc")) { $0 = Adjustments() }; selectedPreset = nil; presetBase = nil }
     func undo() {
-        endGesture("Điều chỉnh")
+        endGesture(tr("Điều chỉnh"))
         guard let id = selectedID, let step = history[id]?.popLast() else { return }
         invalidateMaskStrokeRedo(for: id, from: edits, to: step.before)
         redoHistory[id, default: []].append(step); edits = step.before; selectedPreset = nil; commitCurrent(); scheduleRender()
@@ -548,7 +548,7 @@ private struct MaskPreviewRequest: Sendable {
     }
     func pasteEdits() {
         if let copyBuffer {
-            change("Dán chỉnh sửa") {
+            change(tr("Dán chỉnh sửa")) {
                 let current = $0
                 $0 = copyBuffer
                 $0.keepPortrait(from: current)
@@ -565,7 +565,7 @@ private struct MaskPreviewRequest: Sendable {
                 after.keepPortrait(from: before)
                 after.keepLocalEdits(from: before)
                 catalog.photos[i].adjustments = after
-                history[photo.id, default: []].append(EditStep(label: "Đồng bộ chỉnh sửa", before: before, after: after))
+                history[photo.id, default: []].append(EditStep(label: tr("Đồng bộ chỉnh sửa"), before: before, after: after))
                 redoHistory[photo.id] = []
             }
         }
@@ -582,7 +582,7 @@ private struct MaskPreviewRequest: Sendable {
         save(); status = "Đã lưu preset \(name)"
     }
     func makeVirtualCopy(_ id: UUID) {
-        endGesture("Điều chỉnh")
+        endGesture(tr("Điều chỉnh"))
         guard let index = catalog.photos.firstIndex(where: { $0.id == id }) else { return }
         let source = catalog.photos[index]
         let number = (catalog.photos.filter { $0.path == source.path }.compactMap(\.copyNumber).max() ?? 0) + 1
@@ -611,7 +611,7 @@ private struct MaskPreviewRequest: Sendable {
     }
     func relink() {
         guard let selectedID else { return }
-        let panel = NSOpenPanel(); panel.title = "Chọn lại vị trí ảnh gốc"
+        let panel = NSOpenPanel(); panel.title = tr("Chọn lại vị trí ảnh gốc")
         if panel.runModal() == .OK, let url = panel.url, let i = catalog.photos.firstIndex(where: { $0.id == selectedID }) {
             let oldPath = catalog.photos[i].path
             for index in catalog.photos.indices where catalog.photos[index].path == oldPath {
@@ -629,7 +629,7 @@ private struct MaskPreviewRequest: Sendable {
                 let data = try JSONEncoder().encode(self.catalog)
                 try data.write(to: self.dataDirectory.appendingPathComponent("catalog.json"), options: .atomic)
                 self.saved = true
-            } catch { self.error = "Không lưu được thư viện: \(error.localizedDescription)" }
+            } catch { self.error = tr("Không lưu được thư viện: \(error.localizedDescription)") }
         }
         saveWork = work
         if flush { work.perform() } else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work) }
@@ -776,7 +776,7 @@ private struct MaskPreviewRequest: Sendable {
         guard !isExporting, !targets.isEmpty else { return }
         var jobs: [(PhotoRecord, URL)] = []
         if scope != .current {
-            let panel = NSOpenPanel(); panel.title = "Chọn thư mục xuất \(targets.count) ảnh"; panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
+            let panel = NSOpenPanel(); panel.title = tr("Chọn thư mục xuất \(targets.count) ảnh"); panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.canCreateDirectories = true
             guard panel.runModal() == .OK, let directory = panel.url else { return }
             var reserved = Set<String>()
             for photo in targets {
@@ -790,11 +790,11 @@ private struct MaskPreviewRequest: Sendable {
                 jobs.append((photo, destination))
             }
         } else {
-            let panel = NSSavePanel(); panel.title = "Xuất ảnh"; panel.nameFieldStringValue = (targets[0].name as NSString).deletingPathExtension + "-edited.\(format)"
+            let panel = NSSavePanel(); panel.title = tr("Xuất ảnh"); panel.nameFieldStringValue = (targets[0].name as NSString).deletingPathExtension + "-edited.\(format)"
             panel.allowedContentTypes = [format == "png" ? .png : format == "tiff" ? .tiff : .jpeg]; panel.canCreateDirectories = true
             guard panel.runModal() == .OK, let destination = panel.url else { return }
             if catalog.photos.contains(where: { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath() == destination.resolvingSymlinksInPath() }) {
-                error = "Hãy chọn tên tệp khác để giữ nguyên ảnh gốc trong thư viện."; return
+                error = tr("Hãy chọn tên tệp khác để giữ nguyên ảnh gốc trong thư viện."); return
             }
             jobs = [(targets[0], destination)]
         }
@@ -816,7 +816,8 @@ private struct MaskPreviewRequest: Sendable {
                 guard let self else { return }
                 self.isExporting = false; self.status = "Đã xuất \(exported.count) ảnh"
                 if !errors.isEmpty { self.error = errors.joined(separator: "\n") }
-                if !exported.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(exported) }
+                let reveal = UserDefaults.standard.object(forKey: AppSettings.revealExports) as? Bool ?? true
+                if reveal && !exported.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(exported) }
             }
         }
     }

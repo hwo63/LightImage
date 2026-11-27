@@ -37,7 +37,7 @@ public enum PhotoEnhancement: String {
         mask.feather = 30
         let radius = max(extent.width, extent.height) * 0.018 * min(amount / 100, 1)
         guard let foreground = LocalMaskRenderer.automaticCoverage(mask, extent: extent) else {
-            throw LightImageError.exportFailed("Không đọc được vùng chủ thể để xóa phông.")
+            throw LightImageError.exportFailed(tr("Không đọc được vùng chủ thể để xóa phông."))
         }
         let background = source.applyingFilter("CIBlendWithMask", parameters: [
             kCIInputBackgroundImageKey: CIImage(color: .clear).cropped(to: extent),
@@ -47,7 +47,7 @@ public enum PhotoEnhancement: String {
             kCIInputRadiusKey: radius
         ]).cropped(to: extent)
         guard let result = compositeBlur?.apply(extent: extent, arguments: [source, blurred, foreground]) else {
-            throw LightImageError.exportFailed("Không thể kết xuất hiệu ứng xóa phông.")
+            throw LightImageError.exportFailed(tr("Không thể kết xuất hiệu ứng xóa phông."))
         }
         return result
     }

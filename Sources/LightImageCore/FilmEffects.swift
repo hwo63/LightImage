@@ -48,7 +48,7 @@ enum FilmEffects {
             let cell = max(0.45, max(extent.width, extent.height) / 2400 * (0.75 + a["GrainSize"] / 28))
             guard let output = grain?.apply(extent: extent, arguments: [
                 result, cell, a["GrainAmount"] / 100 * 0.31, a["GrainFrequency"] / 100
-            ]) else { throw LightImageError.exportFailed("Không thể tạo hạt film.") }
+            ]) else { throw LightImageError.exportFailed(tr("Không thể tạo hạt film.")) }
             result = output
         }
         let amount = a.values["PostCropVignetteAmount"] ?? a["VignetteAmount"]
@@ -64,7 +64,7 @@ enum FilmEffects {
             result, frame, amount / 100 * 0.90, 0.08 + a["PostCropVignetteMidpoint"] * 0.009,
             0.04 + a["PostCropVignetteFeather"] * 0.009, (a["PostCropVignetteRoundness"] + 100) / 200,
             a["PostCropVignetteHighlightContrast"] / 100
-        ]) else { throw LightImageError.exportFailed("Không thể kết xuất hiệu ứng tối góc.") }
+        ]) else { throw LightImageError.exportFailed(tr("Không thể kết xuất hiệu ứng tối góc.")) }
         return output
     }
 }

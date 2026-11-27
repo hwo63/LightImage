@@ -175,7 +175,7 @@ public struct PhotoRecord: Codable, Identifiable, Sendable {
         guard let copyNumber else { return url.lastPathComponent }
         let stem = url.deletingPathExtension().lastPathComponent
         let suffix = url.pathExtension.isEmpty ? "" : "." + url.pathExtension
-        return "\(stem) (Bản sao \(copyNumber))\(suffix)"
+        return tr("\(stem) (Bản sao \(copyNumber))\(suffix)")
     }
     public init(path: String) { self.path = path }
 }
@@ -204,10 +204,10 @@ public enum LightImageError: LocalizedError {
     case portraitFailed
     public var errorDescription: String? {
         switch self {
-        case .invalidPreset(let reason): return "Không đọc được preset: \(reason)"
-        case .unreadableImage(let name): return "Không thể mở ảnh \(name). Định dạng RAW có thể chưa được macOS hỗ trợ."
-        case .exportFailed(let name): return "Không thể xuất ảnh: \(name)"
-        case .portraitFailed: return "Không thể xử lý vùng chân dung trên ảnh này."
+        case .invalidPreset(let reason): return tr("Không đọc được preset: \(reason)")
+        case .unreadableImage(let name): return tr("Không thể mở ảnh \(name). Định dạng RAW có thể chưa được macOS hỗ trợ.")
+        case .exportFailed(let name): return tr("Không thể xuất ảnh: \(name)")
+        case .portraitFailed: return tr("Không thể xử lý vùng chân dung trên ảnh này.")
         }
     }
 }

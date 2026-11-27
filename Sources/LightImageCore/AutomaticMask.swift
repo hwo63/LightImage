@@ -68,9 +68,9 @@ enum AutomaticMaskError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noSky: return "Chưa tìm thấy vùng trời đủ rõ trong ảnh."
-        case .noSubject: return "Chưa tìm thấy chủ thể đủ rõ để tách khỏi hậu cảnh."
-        case .unavailable: return "Không thể tạo mặt nạ tự động cho ảnh này."
+        case .noSky: return tr("Chưa tìm thấy vùng trời đủ rõ trong ảnh.")
+        case .noSubject: return tr("Chưa tìm thấy chủ thể đủ rõ để tách khỏi hậu cảnh.")
+        case .unavailable: return tr("Không thể tạo mặt nạ tự động cho ảnh này.")
         }
     }
 }

@@ -1,7 +1,8 @@
 import SwiftUI
 import LightImageCore
 
-struct SplitComparison: View {
+struct SplitComparison: LocalizedView {
+    @AppStorage(AppLanguage.defaultsKey) var language = AppLanguage.vietnamese
     let before: NSImage
     let after: NSImage
     let area: CGSize
@@ -26,9 +27,9 @@ struct SplitComparison: View {
                     .frame(width: 30, height: 30).background(Theme.accent, in: Circle())
                     .position(x: boundary, y: visible.midY)
                 HStack {
-                    label("Trước")
+                    label(tr("Trước"))
                     Spacer()
-                    label("Sau")
+                    label(tr("Sau"))
                 }
                 .padding(10)
                 .frame(width: visible.width, height: visible.height, alignment: .top)
@@ -46,7 +47,7 @@ struct SplitComparison: View {
                 })
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Vạch so sánh trước và sau")
+            .accessibilityLabel(tr("Vạch so sánh trước và sau"))
             .accessibilityValue("\(Int(divider * 100))%")
             .accessibilityAdjustableAction { direction in
                 if direction == .increment { setDivider(divider + 0.1) }
